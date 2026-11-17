@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { callApi, forbidden, isSameOrigin } from '@/lib/bff';
 
 export async function POST(req: NextRequest) {

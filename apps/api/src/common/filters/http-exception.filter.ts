@@ -1,4 +1,11 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, Logger } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from '@nestjs/common';
 import type { Response } from 'express';
 import type { ApiErrorBody } from '@jiko/shared';
 
@@ -27,12 +34,20 @@ export class HttpExceptionFilter implements ExceptionFilter {
       body = {
         statusCode: status,
         code: (obj.code as string) ?? DEFAULT_CODES[status] ?? 'ERROR',
-        message: Array.isArray(obj.message) ? obj.message.join('; ') : String(obj.message ?? exception.message),
+        message: Array.isArray(obj.message)
+          ? obj.message.join('; ')
+          : typeof obj.message === 'string'
+            ? obj.message
+            : exception.message,
         ...(obj.details !== undefined ? { details: obj.details } : {}),
       };
     } else {
       this.logger.error(exception instanceof Error ? exception.stack : String(exception));
-      body = { statusCode: HttpStatus.INTERNAL_SERVER_ERROR, code: 'INTERNAL', message: 'Something went wrong' };
+      body = {
+        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
+        code: 'INTERNAL',
+        message: 'Something went wrong',
+      };
     }
     res.status(body.statusCode).json(body);
   }

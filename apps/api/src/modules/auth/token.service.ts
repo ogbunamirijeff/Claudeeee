@@ -25,15 +25,28 @@ export class TokenService {
     @Inject(ENV) private readonly env: Env,
   ) {}
 
-  async issue(userId: string, deviceInfo?: string, familyId: string = randomUUID()): Promise<AuthTokens & { refreshTokenId: string }> {
+  async issue(
+    userId: string,
+    deviceInfo?: string,
+    familyId: string = randomUUID(),
+  ): Promise<AuthTokens & { refreshTokenId: string }> {
     const now = Date.now();
     const accessExp = new Date(now + this.env.JWT_ACCESS_TTL_SECONDS * 1000);
-    const accessToken = await this.jwt.signAsync({ sub: userId, typ: 'access' }, { expiresIn: this.env.JWT_ACCESS_TTL_SECONDS });
+    const accessToken = await this.jwt.signAsync(
+      { sub: userId, typ: 'access' },
+      { expiresIn: this.env.JWT_ACCESS_TTL_SECONDS },
+    );
 
     const refreshToken = randomBytes(32).toString('base64url');
     const refreshExp = new Date(now + this.env.REFRESH_TOKEN_TTL_DAYS * 86_400_000);
     const row = await this.prisma.refreshToken.create({
-      data: { userId, familyId, tokenHash: sha256(refreshToken), deviceInfo, expiresAt: refreshExp },
+      data: {
+        userId,
+        familyId,
+        tokenHash: sha256(refreshToken),
+        deviceInfo,
+        expiresAt: refreshExp,
+      },
     });
 
     return {
@@ -50,7 +63,12 @@ export class TokenService {
       where: { tokenHash: sha256(refreshToken) },
       include: { user: { select: { status: true } } },
     });
-    const invalid = () => new AppException(HttpStatus.UNAUTHORIZED, 'REFRESH_INVALID', 'Session expired, sign in again');
+    const invalid = () =>
+      new AppException(
+        HttpStatus.UNAUTHORIZED,
+        'REFRESH_INVALID',
+        'Session expired, sign in again',
+      );
     if (!row) throw invalid();
 
     if (row.revokedAt) {
@@ -77,7 +95,10 @@ export class TokenService {
     if (claimed.count === 0) throw invalid();
 
     const next = await this.issue(row.userId, row.deviceInfo ?? undefined, row.familyId);
-    await this.prisma.refreshToken.update({ where: { id: row.id }, data: { replacedById: next.refreshTokenId } });
+    await this.prisma.refreshToken.update({
+      where: { id: row.id },
+      data: { replacedById: next.refreshTokenId },
+    });
     const { refreshTokenId: _, ...tokens } = next;
     return tokens;
   }
@@ -90,10 +111,16 @@ export class TokenService {
   }
 
   async revokeFamily(familyId: string): Promise<void> {
-    await this.prisma.refreshToken.updateMany({ where: { familyId, revokedAt: null }, data: { revokedAt: new Date() } });
+    await this.prisma.refreshToken.updateMany({
+      where: { familyId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 
   async revokeAllForUser(userId: string): Promise<void> {
-    await this.prisma.refreshToken.updateMany({ where: { userId, revokedAt: null }, data: { revokedAt: new Date() } });
+    await this.prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
   }
 }

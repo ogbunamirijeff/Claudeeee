@@ -16,9 +16,9 @@ describe('loadEnv', () => {
   });
 
   it('rejects short secrets and bad keys, naming each problem', () => {
-    expect(() => loadEnv({ ...valid, JWT_ACCESS_SECRET: 'short', DATA_ENCRYPTION_KEY: 'abc' })).toThrow(
-      /JWT_ACCESS_SECRET[\s\S]*DATA_ENCRYPTION_KEY/,
-    );
+    expect(() =>
+      loadEnv({ ...valid, JWT_ACCESS_SECRET: 'short', DATA_ENCRYPTION_KEY: 'abc' }),
+    ).toThrow(/JWT_ACCESS_SECRET[\s\S]*DATA_ENCRYPTION_KEY/);
   });
 
   it('refuses the console SMS provider in production', () => {

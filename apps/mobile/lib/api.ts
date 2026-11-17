@@ -23,14 +23,18 @@ async function raw(path: string, init: RequestInit & { token?: string } = {}) {
       },
     });
   } catch {
-    throw new ApiError({ statusCode: 0, code: 'NETWORK', message: 'No connection. Check your data and try again.' });
+    throw new ApiError({
+      statusCode: 0,
+      code: 'NETWORK',
+      message: 'No connection. Check your data and try again.',
+    });
   } finally {
     clearTimeout(timeout);
   }
 }
 
 async function parse<T>(res: Response): Promise<T> {
-  const body = await res.json().catch(() => ({}));
+  const body: unknown = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(body as ApiErrorBody);
   return body as T;
 }
@@ -46,7 +50,10 @@ async function refresh(): Promise<AuthTokens | null> {
   refreshing ??= (async () => {
     const current = await loadTokens();
     if (!current) return null;
-    const res = await raw('/v1/auth/refresh', { method: 'POST', body: JSON.stringify({ refreshToken: current.refreshToken }) });
+    const res = await raw('/v1/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken: current.refreshToken }),
+    });
     if (!res.ok) {
       await clearTokens();
       return null;
@@ -63,11 +70,21 @@ async function refresh(): Promise<AuthTokens | null> {
 /** Authenticated request; refreshes once on 401. Throws ApiError UNAUTHENTICATED if signed out. */
 export async function authed<T>(path: string, init: RequestInit = {}): Promise<T> {
   let tokens = await loadTokens();
-  if (!tokens) throw new ApiError({ statusCode: 401, code: 'UNAUTHENTICATED', message: 'Sign in to continue' });
+  if (!tokens)
+    throw new ApiError({
+      statusCode: 401,
+      code: 'UNAUTHENTICATED',
+      message: 'Sign in to continue',
+    });
   let res = await raw(path, { ...init, token: tokens.accessToken });
   if (res.status === 401) {
     tokens = await refresh();
-    if (!tokens) throw new ApiError({ statusCode: 401, code: 'UNAUTHENTICATED', message: 'Sign in to continue' });
+    if (!tokens)
+      throw new ApiError({
+        statusCode: 401,
+        code: 'UNAUTHENTICATED',
+        message: 'Sign in to continue',
+      });
     res = await raw(path, { ...init, token: tokens.accessToken });
   }
   return parse<T>(res);
@@ -76,5 +93,9 @@ export async function authed<T>(path: string, init: RequestInit = {}): Promise<T
 export async function logout() {
   const tokens = await loadTokens();
   await clearTokens();
-  if (tokens) await raw('/v1/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken: tokens.refreshToken }) }).catch(() => undefined);
+  if (tokens)
+    await raw('/v1/auth/logout', {
+      method: 'POST',
+      body: JSON.stringify({ refreshToken: tokens.refreshToken }),
+    }).catch(() => undefined);
 }

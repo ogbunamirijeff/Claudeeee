@@ -7,8 +7,12 @@ describe('shared enums mirror schema.prisma', () => {
   });
 
   it.each(Object.keys($Enums))('%s has identical values', (name) => {
-    const prismaValues = Object.values(($Enums as Record<string, Record<string, string>>)[name]!).sort();
-    const sharedValues = Object.values((ALL_ENUMS as Record<string, Record<string, string>>)[name] ?? {}).sort();
+    const prismaValues = Object.values(
+      ($Enums as Record<string, Record<string, string>>)[name]!,
+    ).sort();
+    const sharedValues = Object.values(
+      (ALL_ENUMS as Record<string, Record<string, string>>)[name] ?? {},
+    ).sort();
     expect(sharedValues).toEqual(prismaValues);
   });
 });

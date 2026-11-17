@@ -1,8 +1,16 @@
 /** @type {import('jest').Config} */
-const base = { preset: 'ts-jest', testEnvironment: 'node', moduleFileExtensions: ['ts', 'js', 'json'] };
+const base = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  moduleFileExtensions: ['ts', 'js', 'json'],
+};
 module.exports = {
   projects: [
-    { ...base, displayName: 'unit', testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/test/unit/**/*.spec.ts'] },
+    {
+      ...base,
+      displayName: 'unit',
+      testMatch: ['<rootDir>/src/**/*.spec.ts', '<rootDir>/test/unit/**/*.spec.ts'],
+    },
     {
       ...base,
       displayName: 'e2e',

@@ -15,6 +15,6 @@ export class ZodPipe<T extends ZodTypeAny> implements PipeTransform<unknown, z.o
         parsed.error.issues.map((i) => ({ path: i.path.join('.'), message: i.message })),
       );
     }
-    return parsed.data;
+    return parsed.data as z.output<T>;
   }
 }

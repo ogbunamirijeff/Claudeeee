@@ -30,7 +30,9 @@ describe('Role-based access control', () => {
       const proto = wrapper.metatype?.prototype;
       if (!proto) continue;
       for (const method of scanner.getAllMethodNames(proto)) {
-        const declared = Reflect.getMetadata(ACCESS_KEY, proto[method]) ?? Reflect.getMetadata(ACCESS_KEY, wrapper.metatype!);
+        const declared =
+          Reflect.getMetadata(ACCESS_KEY, proto[method]) ??
+          Reflect.getMetadata(ACCESS_KEY, wrapper.metatype!);
         if (!declared) undeclared.push(`${wrapper.name}.${method}`);
       }
     }
@@ -41,9 +43,17 @@ describe('Role-based access control', () => {
 
   it('public routes work without a token', async () => {
     const trades = await h.http.get('/v1/catalog/trades').expect(200);
-    expect(trades.body.map((t: { slug: string }) => t.slug)).toEqual(['plumbing', 'electrical', 'ac-repair']);
+    expect(trades.body.map((t: { slug: string }) => t.slug)).toEqual([
+      'plumbing',
+      'electrical',
+      'ac-repair',
+    ]);
     const areas = await h.http.get('/v1/catalog/areas').expect(200);
-    expect(areas.body.map((a: { slug: string }) => a.slug).sort()).toEqual(['ajah', 'lekki', 'yaba']);
+    expect(areas.body.map((a: { slug: string }) => a.slug).sort()).toEqual([
+      'ajah',
+      'lekki',
+      'yaba',
+    ]);
     await h.http.get('/health').expect(200, { status: 'ok' });
   });
 
@@ -89,7 +99,9 @@ describe('Role-based access control', () => {
       .get(`/v1/admin/audit-logs?entityType=User&entityId=${client.user.id}`)
       .set(bearer(admin.accessToken))
       .expect(200);
-    expect(audit.body.items.map((i: { action: string }) => i.action)).toContain('user.roles.update');
+    expect(audit.body.items.map((i: { action: string }) => i.action)).toContain(
+      'user.roles.update',
+    );
   });
 
   it('admins cannot remove their own admin role', async () => {
@@ -114,7 +126,10 @@ describe('Role-based access control', () => {
     await h.http.post('/v1/auth/refresh').send({ refreshToken: victim.refreshToken }).expect(401);
 
     const phone = (await h.prisma.user.findUniqueOrThrow({ where: { id: victim.user.id } })).phone;
-    await h.prisma.otpChallenge.updateMany({ where: { phone }, data: { createdAt: new Date(Date.now() - 120_000) } });
+    await h.prisma.otpChallenge.updateMany({
+      where: { phone },
+      data: { createdAt: new Date(Date.now() - 120_000) },
+    });
     await h.http.post('/v1/auth/otp/request').send({ phone }).expect(200);
     const relogin = await h.http
       .post('/v1/auth/otp/verify')
@@ -122,11 +137,18 @@ describe('Role-based access control', () => {
       .expect(403);
     expect(relogin.body.code).toBe('ACCOUNT_SUSPENDED');
 
-    expect(await h.prisma.auditLog.count({ where: { entityId: victim.user.id, action: 'user.status.update' } })).toBe(1);
+    expect(
+      await h.prisma.auditLog.count({
+        where: { entityId: victim.user.id, action: 'user.status.update' },
+      }),
+    ).toBe(1);
   });
 
   it('lists and searches users for admins', async () => {
-    const res = await h.http.get('/v1/admin/users?role=ADMIN').set(bearer(admin.accessToken)).expect(200);
+    const res = await h.http
+      .get('/v1/admin/users?role=ADMIN')
+      .set(bearer(admin.accessToken))
+      .expect(200);
     expect(res.body.items.map((u: { id: string }) => u.id)).toContain(admin.user.id);
   });
 });

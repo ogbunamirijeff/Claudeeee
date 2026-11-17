@@ -5,15 +5,19 @@ import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/bootstrap';
 import { ENV } from '../../src/config/config.module';
 import { loadEnv, type Env } from '../../src/config/env';
-import { SMS_PROVIDER, type SmsMessage, type SmsProvider } from '../../src/modules/sms/sms.provider';
+import {
+  SMS_PROVIDER,
+  type SmsMessage,
+  type SmsProvider,
+} from '../../src/modules/sms/sms.provider';
 import { PrismaService } from '../../src/prisma/prisma.service';
 
 export class CapturingSms implements SmsProvider {
   readonly name = 'capture';
   readonly sent: SmsMessage[] = [];
-  async send(msg: SmsMessage) {
+  send(msg: SmsMessage) {
     this.sent.push(msg);
-    return { providerMessageId: null };
+    return Promise.resolve({ providerMessageId: null });
   }
   lastCodeFor(phone: string): string {
     const msg = [...this.sent].reverse().find((m) => m.to === phone);
@@ -31,7 +35,9 @@ export interface Harness {
   close(): Promise<void>;
 }
 
-export async function createHarness(envOverrides: Partial<Record<keyof Env, string>> = {}): Promise<Harness> {
+export async function createHarness(
+  envOverrides: Partial<Record<keyof Env, string>> = {},
+): Promise<Harness> {
   const sms = new CapturingSms();
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(SMS_PROVIDER)
@@ -62,7 +68,10 @@ export function uniquePhone(): string {
 
 export async function login(h: Harness, phone: string) {
   // Re-used phones (e.g. the seeded admin) would hit the resend cooldown across runs.
-  await h.prisma.otpChallenge.updateMany({ where: { phone }, data: { createdAt: new Date(Date.now() - 2 * 3_600_000) } });
+  await h.prisma.otpChallenge.updateMany({
+    where: { phone },
+    data: { createdAt: new Date(Date.now() - 2 * 3_600_000) },
+  });
   await h.http.post('/v1/auth/otp/request').send({ phone }).expect(200);
   const res = await h.http
     .post('/v1/auth/otp/verify')

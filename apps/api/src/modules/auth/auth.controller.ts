@@ -29,13 +29,19 @@ export class AuthController {
 
   @Post('otp/verify')
   @HttpCode(200)
-  verifyOtp(@Body(new ZodPipe(VerifyOtpSchema)) body: z.output<typeof VerifyOtpSchema>, @Req() req: Request) {
+  verifyOtp(
+    @Body(new ZodPipe(VerifyOtpSchema)) body: z.output<typeof VerifyOtpSchema>,
+    @Req() req: Request,
+  ) {
     return this.auth.verifyOtp(body, contextFrom(req));
   }
 
   @Post('refresh')
   @HttpCode(200)
-  refresh(@Body(new ZodPipe(RefreshSchema)) body: z.output<typeof RefreshSchema>, @Req() req: Request) {
+  refresh(
+    @Body(new ZodPipe(RefreshSchema)) body: z.output<typeof RefreshSchema>,
+    @Req() req: Request,
+  ) {
     return this.auth.refresh(body.refreshToken, contextFrom(req));
   }
 

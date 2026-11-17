@@ -26,23 +26,40 @@ export class OtpService {
     return createHmac('sha256', this.env.OTP_PEPPER).update(`${phone}:${code}`).digest('hex');
   }
 
-  async request(phone: string, ip: string | null): Promise<{ expiresAt: Date; resendAfterSeconds: number }> {
+  async request(
+    phone: string,
+    ip: string | null,
+  ): Promise<{ expiresAt: Date; resendAfterSeconds: number }> {
     const now = Date.now();
     const since = new Date(now - HOUR_MS);
 
     const [last, perPhone, perIp] = await Promise.all([
       this.prisma.otpChallenge.findFirst({ where: { phone }, orderBy: { createdAt: 'desc' } }),
       this.prisma.otpChallenge.count({ where: { phone, createdAt: { gte: since } } }),
-      ip ? this.prisma.otpChallenge.count({ where: { ipAddress: ip, createdAt: { gte: since } } }) : 0,
+      ip
+        ? this.prisma.otpChallenge.count({ where: { ipAddress: ip, createdAt: { gte: since } } })
+        : 0,
     ]);
 
     const cooldownMs = this.env.OTP_RESEND_COOLDOWN_SECONDS * 1000;
     if (last && now - last.createdAt.getTime() < cooldownMs) {
       const retryAfter = Math.ceil((cooldownMs - (now - last.createdAt.getTime())) / 1000);
-      throw new AppException(HttpStatus.TOO_MANY_REQUESTS, 'OTP_COOLDOWN', `Wait ${retryAfter}s before requesting another code`, { retryAfter });
+      throw new AppException(
+        HttpStatus.TOO_MANY_REQUESTS,
+        'OTP_COOLDOWN',
+        `Wait ${retryAfter}s before requesting another code`,
+        { retryAfter },
+      );
     }
-    if (perPhone >= this.env.OTP_MAX_PER_PHONE_PER_HOUR || perIp >= this.env.OTP_MAX_PER_IP_PER_HOUR) {
-      throw new AppException(HttpStatus.TOO_MANY_REQUESTS, 'OTP_RATE_LIMITED', 'Too many codes requested. Try again later.');
+    if (
+      perPhone >= this.env.OTP_MAX_PER_PHONE_PER_HOUR ||
+      perIp >= this.env.OTP_MAX_PER_IP_PER_HOUR
+    ) {
+      throw new AppException(
+        HttpStatus.TOO_MANY_REQUESTS,
+        'OTP_RATE_LIMITED',
+        'Too many codes requested. Try again later.',
+      );
     }
 
     const code = randomInt(0, 1_000_000).toString().padStart(6, '0');
@@ -68,7 +85,11 @@ export class OtpService {
       });
     } catch (err) {
       this.logger.error(`OTP delivery failed: ${(err as Error).message}`);
-      throw new AppException(HttpStatus.BAD_GATEWAY, 'OTP_DELIVERY_FAILED', 'We could not send your code. Please try again.');
+      throw new AppException(
+        HttpStatus.BAD_GATEWAY,
+        'OTP_DELIVERY_FAILED',
+        'We could not send your code. Please try again.',
+      );
     }
 
     return { expiresAt, resendAfterSeconds: this.env.OTP_RESEND_COOLDOWN_SECONDS };
@@ -81,7 +102,11 @@ export class OtpService {
       orderBy: { createdAt: 'desc' },
     });
     if (!challenge) {
-      throw new AppException(HttpStatus.BAD_REQUEST, 'OTP_EXPIRED', 'This code has expired. Request a new one.');
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'OTP_EXPIRED',
+        'This code has expired. Request a new one.',
+      );
     }
 
     // Count the attempt atomically before comparing, so parallel guesses can't exceed the limit.
@@ -90,7 +115,11 @@ export class OtpService {
       data: { attempts: { increment: 1 } },
     });
     if (bumped.count === 0) {
-      throw new AppException(HttpStatus.TOO_MANY_REQUESTS, 'OTP_LOCKED', 'Too many wrong attempts. Request a new code.');
+      throw new AppException(
+        HttpStatus.TOO_MANY_REQUESTS,
+        'OTP_LOCKED',
+        'Too many wrong attempts. Request a new code.',
+      );
     }
 
     const expected = Buffer.from(challenge.codeHash, 'hex');
@@ -107,7 +136,11 @@ export class OtpService {
       data: { consumedAt: new Date() },
     });
     if (consumed.count === 0) {
-      throw new AppException(HttpStatus.BAD_REQUEST, 'OTP_EXPIRED', 'This code has already been used.');
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'OTP_EXPIRED',
+        'This code has already been used.',
+      );
     }
   }
 }

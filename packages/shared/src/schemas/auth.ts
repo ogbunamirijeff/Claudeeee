@@ -7,13 +7,19 @@ export const ngPhone = z
   .transform((v, ctx) => {
     const n = normalizeNgPhone(v);
     if (!n) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Enter a valid Nigerian mobile number' });
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Enter a valid Nigerian mobile number',
+      });
       return z.NEVER;
     }
     return n;
   });
 
-export const otpCode = z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code');
+export const otpCode = z
+  .string()
+  .trim()
+  .regex(/^\d{6}$/, 'Enter the 6-digit code');
 
 export const RequestOtpSchema = z.object({ phone: ngPhone });
 export type RequestOtpInput = z.input<typeof RequestOtpSchema>;

@@ -10,7 +10,11 @@ import { FieldEncryption } from './field-encryption';
       provide: FieldEncryption,
       inject: [ENV],
       useFactory: (env: Env) =>
-        new FieldEncryption(env.DATA_ENCRYPTION_KEY_ID, env.DATA_ENCRYPTION_KEY, env.DATA_ENCRYPTION_PREVIOUS_KEYS),
+        new FieldEncryption(
+          env.DATA_ENCRYPTION_KEY_ID,
+          env.DATA_ENCRYPTION_KEY,
+          env.DATA_ENCRYPTION_PREVIOUS_KEYS,
+        ),
     },
   ],
   exports: [FieldEncryption],

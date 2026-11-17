@@ -3,14 +3,24 @@
 import type { ApiErrorBody } from '@jiko/shared';
 import { formatNgPhone, normalizeNgPhone } from '@jiko/shared/phone';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { FormEvent, useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 
 type Step = 'phone' | 'code';
 
+class RequestFailed extends Error {
+  constructor(public readonly body: Partial<ApiErrorBody>) {
+    super(body.message ?? 'Request failed');
+  }
+}
+
 async function post<T>(url: string, body: unknown): Promise<T> {
-  const res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw data as ApiErrorBody;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const data: unknown = await res.json().catch(() => ({}));
+  if (!res.ok) throw new RequestFailed(data as Partial<ApiErrorBody>);
   return data as T;
 }
 
@@ -45,12 +55,14 @@ export function LoginForm() {
     if (!accepted) return setError('Please accept the Terms and Privacy Policy to continue');
     setBusy(true);
     try {
-      const r = await post<{ resendAfterSeconds: number }>('/api/auth/request-otp', { phone: normalized });
+      const r = await post<{ resendAfterSeconds: number }>('/api/auth/request-otp', {
+        phone: normalized,
+      });
       setPhone(normalized);
       setStep('code');
       setResendIn(r.resendAfterSeconds);
     } catch (err) {
-      setError((err as ApiErrorBody).message ?? 'Could not send the code');
+      setError(err instanceof RequestFailed ? err.message : 'Could not send the code');
     } finally {
       setBusy(false);
     }
@@ -66,7 +78,7 @@ export function LoginForm() {
       router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/account');
       router.refresh();
     } catch (err) {
-      setError((err as ApiErrorBody).message ?? 'Could not verify the code');
+      setError(err instanceof RequestFailed ? err.message : 'Could not verify the code');
       setBusy(false);
     }
   }
@@ -90,14 +102,32 @@ export function LoginForm() {
           />
         </label>
         <label className="flex items-start gap-3 text-sm text-muted">
-          <input type="checkbox" className="mt-1 h-4 w-4" checked={accepted} onChange={(e) => setAccepted(e.target.checked)} />
+          <input
+            type="checkbox"
+            className="mt-1 h-4 w-4"
+            checked={accepted}
+            onChange={(e) => setAccepted(e.target.checked)}
+          />
           <span>
-            I agree to Jiko&apos;s <a className="underline" href="/terms">Terms</a> and{' '}
-            <a className="underline" href="/privacy">Privacy Policy</a>, including how my data is used to match me with artisans.
+            I agree to Jiko&apos;s{' '}
+            <a className="underline" href="/terms">
+              Terms
+            </a>{' '}
+            and{' '}
+            <a className="underline" href="/privacy">
+              Privacy Policy
+            </a>
+            , including how my data is used to match me with artisans.
           </span>
         </label>
-        {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-        <button className={primary} disabled={busy}>{busy ? 'Sending…' : 'Send code'}</button>
+        {error && (
+          <p role="alert" className="text-sm text-danger">
+            {error}
+          </p>
+        )}
+        <button className={primary} disabled={busy}>
+          {busy ? 'Sending…' : 'Send code'}
+        </button>
       </form>
     );
   }
@@ -118,13 +148,32 @@ export function LoginForm() {
         onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
         autoFocus
       />
-      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <button className={primary} disabled={busy || code.length !== 6}>{busy ? 'Checking…' : 'Continue'}</button>
+      {error && (
+        <p role="alert" className="text-sm text-danger">
+          {error}
+        </p>
+      )}
+      <button className={primary} disabled={busy || code.length !== 6}>
+        {busy ? 'Checking…' : 'Continue'}
+      </button>
       <div className="flex justify-between text-sm">
-        <button type="button" className="text-muted underline-offset-4 hover:underline" onClick={() => { setStep('phone'); setCode(''); setError(null); }}>
+        <button
+          type="button"
+          className="text-muted underline-offset-4 hover:underline"
+          onClick={() => {
+            setStep('phone');
+            setCode('');
+            setError(null);
+          }}
+        >
           Change number
         </button>
-        <button type="button" className="text-muted underline-offset-4 hover:underline disabled:no-underline disabled:opacity-50" disabled={resendIn > 0 || busy} onClick={() => sendCode()}>
+        <button
+          type="button"
+          className="text-muted underline-offset-4 hover:underline disabled:no-underline disabled:opacity-50"
+          disabled={resendIn > 0 || busy}
+          onClick={() => sendCode()}
+        >
           {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
         </button>
       </div>

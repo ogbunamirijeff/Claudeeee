@@ -11,7 +11,9 @@ function setup(rule: AccessRule | undefined, dbUser: object | null) {
   const handler = () => undefined;
   if (rule) Reflect.defineMetadata(ACCESS_KEY, rule, handler);
   const jwt = new JwtService({ secret: SECRET });
-  const prisma = { user: { findUnique: jest.fn().mockResolvedValue(dbUser) } } as unknown as PrismaService;
+  const prisma = {
+    user: { findUnique: jest.fn().mockResolvedValue(dbUser) },
+  } as unknown as PrismaService;
   const guard = new AccessGuard(new Reflector(), jwt, prisma);
   const run = async (authorization?: string) => {
     const req: Record<string, unknown> = { headers: authorization ? { authorization } : {} };
@@ -65,7 +67,10 @@ describe('AccessGuard', () => {
   it('enforces roles using the database, not the token', async () => {
     const { run, token } = setup({ kind: 'roles', roles: ['ADMIN'] }, client);
     expect(await code(run(`Bearer ${token()}`))).toBe('FORBIDDEN');
-    const admin = setup({ kind: 'roles', roles: ['ADMIN'] }, { ...client, roles: ['CLIENT', 'ADMIN'] });
+    const admin = setup(
+      { kind: 'roles', roles: ['ADMIN'] },
+      { ...client, roles: ['CLIENT', 'ADMIN'] },
+    );
     expect(await code(admin.run(`Bearer ${admin.token()}`))).toBe('ALLOWED');
   });
 

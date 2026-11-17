@@ -2,7 +2,16 @@ import type { RequestOtpResponse, VerifyOtpResponse } from '@jiko/shared';
 import { formatNgPhone, normalizeNgPhone } from '@jiko/shared/phone';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ApiError, publicPost } from '../lib/api';
 import { useAuth } from '../lib/auth';
@@ -25,7 +34,8 @@ export default function Login() {
     return () => clearTimeout(t);
   }, [resendIn]);
 
-  const fail = (e: unknown) => setError(e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
+  const fail = (e: unknown) =>
+    setError(e instanceof ApiError ? e.message : 'Something went wrong. Try again.');
 
   async function sendCode() {
     setError(null);
@@ -83,7 +93,8 @@ export default function Login() {
             <View style={s.consent}>
               <Switch value={accepted} onValueChange={setAccepted} />
               <Text style={s.consentText}>
-                I agree to Jiko&apos;s Terms and Privacy Policy, including how my data is used to match me with artisans.
+                I agree to Jiko&apos;s Terms and Privacy Policy, including how my data is used to
+                match me with artisans.
               </Text>
             </View>
             {error && <Text style={s.error}>{error}</Text>}
@@ -104,13 +115,25 @@ export default function Login() {
               onChangeText={(v) => setCode(v.replace(/\D/g, ''))}
             />
             {error && <Text style={s.error}>{error}</Text>}
-            <Button label={busy ? 'Checking…' : 'Continue'} disabled={busy || code.length !== 6} onPress={verify} />
+            <Button
+              label={busy ? 'Checking…' : 'Continue'}
+              disabled={busy || code.length !== 6}
+              onPress={verify}
+            />
             <View style={s.row}>
-              <Pressable onPress={() => { setStep('phone'); setCode(''); setError(null); }}>
+              <Pressable
+                onPress={() => {
+                  setStep('phone');
+                  setCode('');
+                  setError(null);
+                }}
+              >
                 <Text style={s.link}>Change number</Text>
               </Pressable>
               <Pressable disabled={resendIn > 0 || busy} onPress={sendCode}>
-                <Text style={[s.link, resendIn > 0 && { opacity: 0.5 }]}>{resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}</Text>
+                <Text style={[s.link, resendIn > 0 && { opacity: 0.5 }]}>
+                  {resendIn > 0 ? `Resend in ${resendIn}s` : 'Resend code'}
+                </Text>
               </Pressable>
             </View>
           </>
@@ -120,9 +143,22 @@ export default function Login() {
   );
 }
 
-function Button({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+function Button({
+  label,
+  onPress,
+  disabled,
+}: {
+  label: string;
+  onPress: () => void;
+  disabled?: boolean;
+}) {
   return (
-    <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled} style={[s.btn, disabled && { opacity: 0.5 }]}>
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      disabled={disabled}
+      style={[s.btn, disabled && { opacity: 0.5 }]}
+    >
       <Text style={s.btnText}>{label}</Text>
     </Pressable>
   );
@@ -133,12 +169,26 @@ const s = StyleSheet.create({
   logo: { fontSize: 24, fontWeight: '600', color: colors.ink, marginBottom: 16 },
   h1: { fontSize: 24, fontWeight: '600', color: colors.ink },
   sub: { color: colors.muted, fontSize: 15 },
-  input: { borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 12, fontSize: 18, color: colors.ink },
+  input: {
+    borderWidth: 1,
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 18,
+    color: colors.ink,
+  },
   code: { textAlign: 'center', letterSpacing: 8 },
   consent: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   consentText: { flex: 1, color: colors.muted, fontSize: 13 },
   error: { color: colors.danger, fontSize: 14 },
-  btn: { backgroundColor: colors.brand, borderRadius: 10, paddingVertical: 14, alignItems: 'center' },
+  btn: {
+    backgroundColor: colors.brand,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
   btnText: { color: colors.brandFg, fontSize: 16, fontWeight: '600' },
   row: { flexDirection: 'row', justifyContent: 'space-between' },
   link: { color: colors.muted, fontSize: 14 },

@@ -2,7 +2,9 @@
   "name": "jiko",
   "private": true,
   "packageManager": "pnpm@10.28.0",
-  "engines": { "node": ">=20.11" },
+  "engines": {
+    "node": ">=20.11"
+  },
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev --parallel",
@@ -11,11 +13,21 @@
     "test:e2e": "turbo run test:e2e",
     "db:migrate": "pnpm --filter @jiko/api db:migrate",
     "db:seed": "pnpm --filter @jiko/api db:seed",
-    "db:reset": "pnpm --filter @jiko/api db:reset"
+    "db:reset": "pnpm --filter @jiko/api db:reset",
+    "lint": "eslint . --max-warnings=0",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "@eslint/js": "~9.39.5",
+    "eslint": "~9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.5.0",
+    "prettier": "^3.3.3",
     "turbo": "2.11.11",
     "typescript": "~5.8.3",
-    "prettier": "^3.3.3"
+    "typescript-eslint": "^8.73.0"
   }
 }

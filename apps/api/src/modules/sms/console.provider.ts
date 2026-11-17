@@ -6,8 +6,8 @@ export class ConsoleSmsProvider implements SmsProvider {
   readonly name = 'console';
   private readonly logger = new Logger('SMS');
 
-  async send(msg: SmsMessage) {
+  send(msg: SmsMessage) {
     this.logger.warn(`[dev sms] to ${msg.to}: ${msg.body}`);
-    return { providerMessageId: null };
+    return Promise.resolve({ providerMessageId: null });
   }
 }

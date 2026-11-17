@@ -30,12 +30,21 @@ export class AuthService {
     // Consent is checked before the code so a missing tick doesn't burn an attempt.
     const needsConsent = !existing || existing.consentVersion !== CONSENT_VERSION;
     if (needsConsent && input.acceptTerms !== true) {
-      throw new AppException(HttpStatus.BAD_REQUEST, 'CONSENT_REQUIRED', 'Please accept the Terms and Privacy Policy to continue.', {
-        consentVersion: CONSENT_VERSION,
-      });
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'CONSENT_REQUIRED',
+        'Please accept the Terms and Privacy Policy to continue.',
+        {
+          consentVersion: CONSENT_VERSION,
+        },
+      );
     }
     if (existing?.status === 'SUSPENDED') {
-      throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_SUSPENDED', 'This account is suspended. Contact Jiko support.');
+      throw new AppException(
+        HttpStatus.FORBIDDEN,
+        'ACCOUNT_SUSPENDED',
+        'This account is suspended. Contact Jiko support.',
+      );
     }
 
     await this.otp.verify(input.phone, input.code);

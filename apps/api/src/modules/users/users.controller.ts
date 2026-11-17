@@ -24,8 +24,11 @@ export class UsersController {
     @Body(new ZodPipe(UpdateMeSchema)) body: z.output<typeof UpdateMeSchema>,
   ): Promise<MeResponse> {
     if (body.defaultAreaId) {
-      const area = await this.prisma.serviceArea.findFirst({ where: { id: body.defaultAreaId, isActive: true } });
-      if (!area) throw new AppException(HttpStatus.BAD_REQUEST, 'AREA_NOT_FOUND', 'Unknown service area');
+      const area = await this.prisma.serviceArea.findFirst({
+        where: { id: body.defaultAreaId, isActive: true },
+      });
+      if (!area)
+        throw new AppException(HttpStatus.BAD_REQUEST, 'AREA_NOT_FOUND', 'Unknown service area');
     }
     return toMe(await this.prisma.user.update({ where: { id: user.id }, data: body }));
   }

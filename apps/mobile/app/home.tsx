@@ -23,8 +23,15 @@ export default function Home() {
       {isArtisan && (
         <View style={s.toggle} accessibilityRole="tablist">
           {(['client', 'artisan'] as AppMode[]).map((m) => (
-            <Pressable key={m} onPress={() => setMode(m)} style={[s.tab, mode === m && s.tabActive]} accessibilityState={{ selected: mode === m }}>
-              <Text style={[s.tabText, mode === m && s.tabTextActive]}>{m === 'client' ? 'Book a job' : 'My work'}</Text>
+            <Pressable
+              key={m}
+              onPress={() => setMode(m)}
+              style={[s.tab, mode === m && s.tabActive]}
+              accessibilityState={{ selected: mode === m }}
+            >
+              <Text style={[s.tabText, mode === m && s.tabTextActive]}>
+                {m === 'client' ? 'Book a job' : 'My work'}
+              </Text>
             </Pressable>
           ))}
         </View>
@@ -47,7 +54,12 @@ export default function Home() {
 
 const s = StyleSheet.create({
   wrap: { flex: 1, paddingHorizontal: 24, gap: 12 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12 },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
   logo: { fontSize: 20, fontWeight: '600', color: colors.ink },
   h1: { fontSize: 24, fontWeight: '600', color: colors.ink, marginTop: 8 },
   muted: { color: colors.muted, fontSize: 14 },
@@ -56,6 +68,14 @@ const s = StyleSheet.create({
   tabActive: { backgroundColor: colors.surface },
   tabText: { color: colors.muted, fontWeight: '500' },
   tabTextActive: { color: colors.ink },
-  card: { marginTop: 12, backgroundColor: colors.surface, borderColor: colors.line, borderWidth: 1, borderRadius: 12, padding: 16, gap: 6 },
+  card: {
+    marginTop: 12,
+    backgroundColor: colors.surface,
+    borderColor: colors.line,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    gap: 6,
+  },
   cardTitle: { fontWeight: '600', color: colors.ink, fontSize: 16 },
 });

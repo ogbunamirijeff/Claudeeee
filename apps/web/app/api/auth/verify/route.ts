@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import type { VerifyOtpResponse } from '@jiko/shared';
 import { callApi, forbidden, isSameOrigin } from '@/lib/bff';
 import { setSessionCookies } from '@/lib/session';
@@ -6,7 +6,7 @@ import { setSessionCookies } from '@/lib/session';
 export async function POST(req: NextRequest) {
   if (!isSameOrigin(req)) return forbidden();
   const res = await callApi('/v1/auth/otp/verify', await req.json().catch(() => ({})), req);
-  const body = await res.json();
+  const body: unknown = await res.json();
   if (!res.ok) return NextResponse.json(body, { status: res.status });
 
   const data = body as VerifyOtpResponse;

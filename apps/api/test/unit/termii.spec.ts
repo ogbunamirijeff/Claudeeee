@@ -1,12 +1,21 @@
 import { TermiiSmsProvider } from '../../src/modules/sms/termii.provider';
 
 describe('TermiiSmsProvider', () => {
-  const cfg = { baseUrl: 'https://api.ng.termii.com', apiKey: 'key', senderId: 'Jiko', channel: 'generic' as const };
+  const cfg = {
+    baseUrl: 'https://api.ng.termii.com',
+    apiKey: 'key',
+    senderId: 'Jiko',
+    channel: 'generic' as const,
+  };
 
   it('sends OTPs on the DND channel in Termii number format', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: true, json: async () => ({ message_id: 'm1' }) });
-    const p = new TermiiSmsProvider(cfg, fetchMock as unknown as typeof fetch);
-    await expect(p.send({ to: '+2348031234512', body: 'code 123456', transactional: true })).resolves.toEqual({
+    const fetchMock = jest
+      .fn()
+      .mockResolvedValue({ ok: true, json: () => Promise.resolve({ message_id: 'm1' }) });
+    const p = new TermiiSmsProvider(cfg, fetchMock);
+    await expect(
+      p.send({ to: '+2348031234512', body: 'code 123456', transactional: true }),
+    ).resolves.toEqual({
       providerMessageId: 'm1',
     });
     const [url, init] = fetchMock.mock.calls[0];
@@ -22,8 +31,14 @@ describe('TermiiSmsProvider', () => {
   });
 
   it('throws on provider errors', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({ ok: false, status: 400, json: async () => ({ message: 'bad sender' }) });
-    const p = new TermiiSmsProvider(cfg, fetchMock as unknown as typeof fetch);
-    await expect(p.send({ to: '+2348031234512', body: 'x', transactional: false })).rejects.toThrow(/400/);
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: () => Promise.resolve({ message: 'bad sender' }),
+    });
+    const p = new TermiiSmsProvider(cfg, fetchMock);
+    await expect(p.send({ to: '+2348031234512', body: 'x', transactional: false })).rejects.toThrow(
+      /400/,
+    );
   });
 });

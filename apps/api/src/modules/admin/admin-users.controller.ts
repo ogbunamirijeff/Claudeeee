@@ -48,7 +48,9 @@ export class AdminUsersController {
       where: {
         status: { not: 'DELETED' },
         ...(q.role ? { roles: { has: q.role } } : {}),
-        ...(q.q ? { OR: [{ name: { contains: q.q, mode: 'insensitive' } }, { phone: { contains: q.q } }] } : {}),
+        ...(q.q
+          ? { OR: [{ name: { contains: q.q, mode: 'insensitive' } }, { phone: { contains: q.q } }] }
+          : {}),
       },
       select: userSelect,
       orderBy: { createdAt: 'desc' },
@@ -68,11 +70,16 @@ export class AdminUsersController {
   ) {
     const roles = [...new Set(body.roles)];
     if (id === actor.id && !roles.includes('ADMIN')) {
-      throw new AppException(HttpStatus.BAD_REQUEST, 'CANNOT_REMOVE_OWN_ADMIN', 'You cannot remove your own admin role');
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'CANNOT_REMOVE_OWN_ADMIN',
+        'You cannot remove your own admin role',
+      );
     }
     return this.prisma.$transaction(async (tx) => {
       const before = await tx.user.findUnique({ where: { id }, select: userSelect });
-      if (!before || before.status === 'DELETED') throw new AppException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'User not found');
+      if (!before || before.status === 'DELETED')
+        throw new AppException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'User not found');
       const after = await tx.user.update({ where: { id }, data: { roles }, select: userSelect });
       await this.audit.record(
         {
@@ -98,12 +105,21 @@ export class AdminUsersController {
     @Req() req: Request,
   ) {
     if (id === actor.id) {
-      throw new AppException(HttpStatus.BAD_REQUEST, 'CANNOT_CHANGE_OWN_STATUS', 'You cannot change your own status');
+      throw new AppException(
+        HttpStatus.BAD_REQUEST,
+        'CANNOT_CHANGE_OWN_STATUS',
+        'You cannot change your own status',
+      );
     }
     const result = await this.prisma.$transaction(async (tx) => {
       const before = await tx.user.findUnique({ where: { id }, select: userSelect });
-      if (!before || before.status === 'DELETED') throw new AppException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'User not found');
-      const after = await tx.user.update({ where: { id }, data: { status: body.status }, select: userSelect });
+      if (!before || before.status === 'DELETED')
+        throw new AppException(HttpStatus.NOT_FOUND, 'USER_NOT_FOUND', 'User not found');
+      const after = await tx.user.update({
+        where: { id },
+        data: { status: body.status },
+        select: userSelect,
+      });
       await this.audit.record(
         {
           actor,

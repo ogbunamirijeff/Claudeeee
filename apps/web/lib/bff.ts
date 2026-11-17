@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import { apiUrl } from './session';
 
 /** Same-origin check for cookie-authenticated POSTs (CSRF defence on top of SameSite=Lax). */
@@ -14,7 +14,10 @@ export function isSameOrigin(req: NextRequest): boolean {
 }
 
 export const forbidden = () =>
-  NextResponse.json({ statusCode: 403, code: 'BAD_ORIGIN', message: 'Request blocked' }, { status: 403 });
+  NextResponse.json(
+    { statusCode: 403, code: 'BAD_ORIGIN', message: 'Request blocked' },
+    { status: 403 },
+  );
 
 export async function callApi(path: string, body: unknown, req: NextRequest) {
   return fetch(`${apiUrl()}${path}`, {

@@ -16,7 +16,9 @@
     "db:seed:demo": "tsx prisma/seed/demo.ts",
     "postinstall": "prisma generate"
   },
-  "prisma": { "seed": "tsx prisma/seed/reference.ts" },
+  "prisma": {
+    "seed": "tsx prisma/seed/reference.ts"
+  },
   "dependencies": {
     "@jiko/shared": "workspace:*",
     "@nestjs/common": "^11.1.9",

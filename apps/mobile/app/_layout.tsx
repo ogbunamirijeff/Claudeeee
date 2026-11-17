@@ -9,7 +9,9 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
         <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }} />
+        <Stack
+          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.canvas } }}
+        />
       </AuthProvider>
     </SafeAreaProvider>
   );

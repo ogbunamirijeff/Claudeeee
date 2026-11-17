@@ -10,7 +10,8 @@ export default function globalSetup() {
     ...process.env,
     NODE_ENV: 'test',
     DATABASE_URL:
-      process.env.TEST_DATABASE_URL ?? 'postgresql://jiko:jiko@localhost:5432/jiko_test?schema=public',
+      process.env.TEST_DATABASE_URL ??
+      'postgresql://jiko:jiko@localhost:5432/jiko_test?schema=public',
     SEED_ADMIN_PHONE: '+2348000000001',
   };
   const cwd = join(__dirname, '..', '..');

@@ -16,14 +16,22 @@ export default async function AccountPage() {
         <Logo />
         <LogoutButton />
       </header>
-      <h1 className="text-2xl font-semibold">{me.name ? `Hello, ${me.name.split(' ')[0]}` : 'Welcome to Jiko'}</h1>
+      <h1 className="text-2xl font-semibold">
+        {me.name ? `Hello, ${me.name.split(' ')[0]}` : 'Welcome to Jiko'}
+      </h1>
       <dl className="mt-6 divide-y divide-line rounded-xl border border-line bg-surface">
         <Row label="Phone" value={formatNgPhone(me.phone)} />
         <Row label="Roles" value={me.roles.map((r) => r.toLowerCase()).join(', ')} />
-        <Row label="Member since" value={new Date(me.createdAt).toLocaleDateString('en-NG', { dateStyle: 'medium' })} />
+        <Row
+          label="Member since"
+          value={new Date(me.createdAt).toLocaleDateString('en-NG', { dateStyle: 'medium' })}
+        />
       </dl>
       {me.roles.includes('ADMIN') && (
-        <Link href="/admin" className="mt-6 block rounded-lg bg-brand px-4 py-3 text-center font-medium text-brand-fg">
+        <Link
+          href="/admin"
+          className="mt-6 block rounded-lg bg-brand px-4 py-3 text-center font-medium text-brand-fg"
+        >
           Open admin dashboard
         </Link>
       )}

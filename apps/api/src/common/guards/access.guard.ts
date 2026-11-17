@@ -45,10 +45,18 @@ export class AccessGuard implements CanActivate {
     try {
       payload = await this.jwt.verifyAsync<AccessTokenPayload>(token); // HS256 + issuer pinned in AuthModule
     } catch {
-      throw new AppException(HttpStatus.UNAUTHORIZED, 'TOKEN_INVALID', 'Session expired, sign in again');
+      throw new AppException(
+        HttpStatus.UNAUTHORIZED,
+        'TOKEN_INVALID',
+        'Session expired, sign in again',
+      );
     }
     if (payload.typ !== 'access') {
-      throw new AppException(HttpStatus.UNAUTHORIZED, 'TOKEN_INVALID', 'Session expired, sign in again');
+      throw new AppException(
+        HttpStatus.UNAUTHORIZED,
+        'TOKEN_INVALID',
+        'Session expired, sign in again',
+      );
     }
 
     const user = await this.prisma.user.findUnique({
@@ -56,10 +64,18 @@ export class AccessGuard implements CanActivate {
       select: { id: true, phone: true, roles: true, status: true },
     });
     if (!user || user.status === 'DELETED') {
-      throw new AppException(HttpStatus.UNAUTHORIZED, 'TOKEN_INVALID', 'Session expired, sign in again');
+      throw new AppException(
+        HttpStatus.UNAUTHORIZED,
+        'TOKEN_INVALID',
+        'Session expired, sign in again',
+      );
     }
     if (user.status === 'SUSPENDED') {
-      throw new AppException(HttpStatus.FORBIDDEN, 'ACCOUNT_SUSPENDED', 'This account is suspended');
+      throw new AppException(
+        HttpStatus.FORBIDDEN,
+        'ACCOUNT_SUSPENDED',
+        'This account is suspended',
+      );
     }
     req.user = { id: user.id, phone: user.phone, roles: user.roles };
 

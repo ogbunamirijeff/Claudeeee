@@ -9,41 +9,77 @@ describe('Database integrity rules', () => {
 
   it('ledger entries are append-only', async () => {
     const e = await prisma.ledgerEntry.create({
-      data: { txnId: 't1', debitAccount: 'PAYSTACK_INFLOW', creditAccount: 'ESCROW', amountKobo: 1000, memo: 'test' },
+      data: {
+        txnId: 't1',
+        debitAccount: 'PAYSTACK_INFLOW',
+        creditAccount: 'ESCROW',
+        amountKobo: 1000,
+        memo: 'test',
+      },
     });
-    await expect(prisma.ledgerEntry.update({ where: { id: e.id }, data: { amountKobo: 1 } })).rejects.toThrow(/append-only/);
+    await expect(
+      prisma.ledgerEntry.update({ where: { id: e.id }, data: { amountKobo: 1 } }),
+    ).rejects.toThrow(/append-only/);
     await expect(prisma.ledgerEntry.delete({ where: { id: e.id } })).rejects.toThrow(/append-only/);
-    await expect(prisma.$executeRawUnsafe('TRUNCATE ledger_entries')).rejects.toThrow(/append-only/);
+    await expect(prisma.$executeRawUnsafe('TRUNCATE ledger_entries')).rejects.toThrow(
+      /append-only/,
+    );
   });
 
   it('ledger amounts are positive and move between two different accounts', async () => {
     await expect(
       prisma.ledgerEntry.create({
-        data: { txnId: 't2', debitAccount: 'ESCROW', creditAccount: 'ARTISAN_PAYABLE', amountKobo: -5, memo: 'x' },
+        data: {
+          txnId: 't2',
+          debitAccount: 'ESCROW',
+          creditAccount: 'ARTISAN_PAYABLE',
+          amountKobo: -5,
+          memo: 'x',
+        },
       }),
     ).rejects.toThrow(/ledger_amount_positive/);
     await expect(
       prisma.ledgerEntry.create({
-        data: { txnId: 't3', debitAccount: 'ESCROW', creditAccount: 'ESCROW', amountKobo: 5, memo: 'x' },
+        data: {
+          txnId: 't3',
+          debitAccount: 'ESCROW',
+          creditAccount: 'ESCROW',
+          amountKobo: 5,
+          memo: 'x',
+        },
       }),
     ).rejects.toThrow(/ledger_distinct_accounts/);
   });
 
   it('audit logs are append-only', async () => {
-    const a = await prisma.auditLog.create({ data: { action: 'test', entityType: 'X', entityId: '1' } });
-    await expect(prisma.auditLog.update({ where: { id: a.id }, data: { action: 'tampered' } })).rejects.toThrow(/append-only/);
+    const a = await prisma.auditLog.create({
+      data: { action: 'test', entityType: 'X', entityId: '1' },
+    });
+    await expect(
+      prisma.auditLog.update({ where: { id: a.id }, data: { action: 'tampered' } }),
+    ).rejects.toThrow(/append-only/);
     await expect(prisma.auditLog.delete({ where: { id: a.id } })).rejects.toThrow(/append-only/);
   });
 
   it('only stores canonical Nigerian phone numbers', async () => {
-    await expect(prisma.user.create({ data: { phone: '08031234567' } })).rejects.toThrow(/users_phone_e164_ng/);
+    await expect(prisma.user.create({ data: { phone: '08031234567' } })).rejects.toThrow(
+      /users_phone_e164_ng/,
+    );
   });
 
   it('sensitive file kinds must be marked sensitive', async () => {
     const owner = await prisma.user.create({ data: { phone: uniquePhone() } });
     await expect(
       prisma.file.create({
-        data: { ownerId: owner.id, kind: 'ID_DOCUMENT', sensitivity: 'STANDARD', bucket: 'b', storageKey: randomUUID(), mimeType: 'image/jpeg', sizeBytes: 1 },
+        data: {
+          ownerId: owner.id,
+          kind: 'ID_DOCUMENT',
+          sensitivity: 'STANDARD',
+          bucket: 'b',
+          storageKey: randomUUID(),
+          mimeType: 'image/jpeg',
+          sizeBytes: 1,
+        },
       }),
     ).rejects.toThrow(/files_sensitive_kinds/);
   });

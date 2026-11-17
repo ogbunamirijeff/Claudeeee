@@ -1,6 +1,12 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { type NextRequest, NextResponse } from 'next/server';
 import type { AuthTokens } from '@jiko/shared';
-import { ACCESS_COOKIE, REFRESH_COOKIE, apiUrl, clearSessionCookies, setSessionCookies } from './lib/session';
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  apiUrl,
+  clearSessionCookies,
+  setSessionCookies,
+} from './lib/session';
 
 const PROTECTED = ['/account', '/admin'];
 
@@ -36,7 +42,10 @@ export async function middleware(req: NextRequest) {
 
   // Re-run the request with the new cookie so server components see it immediately.
   const headers = new Headers(req.headers);
-  headers.set('cookie', `${ACCESS_COOKIE}=${tokens.accessToken}; ${REFRESH_COOKIE}=${tokens.refreshToken}`);
+  headers.set(
+    'cookie',
+    `${ACCESS_COOKIE}=${tokens.accessToken}; ${REFRESH_COOKIE}=${tokens.refreshToken}`,
+  );
   const res = NextResponse.next({ request: { headers } });
   setSessionCookies(res, tokens);
   return res;
