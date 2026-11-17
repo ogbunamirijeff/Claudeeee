@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "Jiko",
+    "slug": "jiko",
+    "scheme": "jiko",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": { "bundleIdentifier": "ng.jiko.app", "supportsTablet": false },
+    "android": { "package": "ng.jiko.app", "softwareKeyboardLayoutMode": "pan" },
+    "plugins": ["expo-router", "expo-secure-store"],
+    "experiments": { "typedRoutes": false }
+  }
+}

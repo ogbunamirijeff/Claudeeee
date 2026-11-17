@@ -1,0 +1,37 @@
+export const TRADES = [
+  { slug: 'plumbing', name: 'Plumbing', sortOrder: 1 },
+  { slug: 'electrical', name: 'Electrical', sortOrder: 2 },
+  { slug: 'ac-repair', name: 'AC installation & repair', sortOrder: 3 },
+] as const;
+
+// Approximate area centroids, used for distance scoring in matching.
+export const AREAS = [
+  { slug: 'lekki', name: 'Lekki', lga: 'Eti-Osa', lat: 6.4474, lng: 3.4723 },
+  { slug: 'ajah', name: 'Ajah', lga: 'Eti-Osa', lat: 6.4698, lng: 3.5852 },
+  { slug: 'yaba', name: 'Yaba', lga: 'Lagos Mainland', lat: 6.5095, lng: 3.3711 },
+] as const;
+
+export const FIRST_NAMES = [
+  'Chinedu', 'Tunde', 'Emeka', 'Babatunde', 'Ifeanyi', 'Segun', 'Musa', 'Kelechi', 'Olumide', 'Femi',
+  'Ikenna', 'Yusuf', 'Adebayo', 'Obinna', 'Sola', 'Uche', 'Kunle', 'Ahmed', 'Chukwuma', 'Gbenga',
+  'Nnamdi', 'Rasheed', 'Tobi', 'Emmanuel', 'Dapo', 'Ibrahim', 'Chidi', 'Wale', 'Godwin', 'Ayo',
+];
+export const LAST_NAMES = [
+  'Okafor', 'Adeyemi', 'Eze', 'Balogun', 'Nwosu', 'Ogunleye', 'Bello', 'Okonkwo', 'Afolabi', 'Lawal',
+  'Ibe', 'Abdullahi', 'Oyelaran', 'Chukwu', 'Bakare', 'Onyeka', 'Adewale', 'Sani', 'Obi', 'Olaniyan',
+];
+export const CLIENT_NAMES = [
+  'Amaka Obi', 'Funke Adeyemi', 'Zainab Bello', 'Ngozi Eze', 'Tolu Akinwale',
+  'Bisi Coker', 'Chioma Nwachukwu', 'Kemi Alade', 'Hauwa Musa', 'Ada Okoro',
+];
+
+export const SAMPLE_JOBS = [
+  { trade: 'plumbing', area: 'lekki', description: 'Kitchen sink is leaking under the cabinet and the trap looks cracked.', address: '14 Admiralty Way, Lekki Phase 1', landmark: 'Opposite the filling station' },
+  { trade: 'electrical', area: 'yaba', description: 'Sockets in two bedrooms stopped working after a power surge. Breaker keeps tripping.', address: '7 Herbert Macaulay Way, Yaba', landmark: 'Near Yaba bus stop' },
+  { trade: 'ac-repair', area: 'ajah', description: 'Split AC in the living room blows warm air and makes a rattling noise.', address: '3 Addo Road, Ajah', landmark: 'Beside the church' },
+  { trade: 'plumbing', area: 'ajah', description: 'Water pressure is very low upstairs; suspect the pumping machine.', address: '22 Badore Road, Ajah', landmark: null },
+  { trade: 'electrical', area: 'lekki', description: 'Need a changeover switch installed for a new 5kVA generator.', address: '9 Fola Osibo Street, Lekki Phase 1', landmark: 'Close to Circle Mall' },
+  { trade: 'ac-repair', area: 'lekki', description: 'Two 1.5HP split units need servicing and gas top-up.', address: '41 Chevron Drive, Lekki', landmark: 'Chevron roundabout' },
+  { trade: 'plumbing', area: 'yaba', description: 'Toilet cistern keeps running and the flush handle is broken.', address: '12 Commercial Avenue, Sabo Yaba', landmark: null },
+  { trade: 'electrical', area: 'ajah', description: 'Inverter not charging; batteries may be faulty. Need diagnosis.', address: '5 Thomas Estate, Ajah', landmark: 'Thomas Estate gate' },
+] as const;

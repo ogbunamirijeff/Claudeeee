@@ -1,0 +1,794 @@
+// Jiko — Prisma schema
+// Conventions
+// - Money is Int kobo (₦1 = 100 kobo). Max ≈ ₦21.4M per row; non-negative via CHECK constraints.
+// - Timestamps are UTC. Tables are snake_case via @@map; columns stay camelCase.
+// - Integrity rules Prisma can't express (CHECKs, append-only triggers, partial unique indexes)
+//   live in prisma/migrations/*_integrity/migration.sql.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── Enums ───────────────────────────
+
+enum Role {
+  CLIENT
+  ARTISAN
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED // erased on request (NDPA): PII anonymised, financial records kept
+}
+
+enum SealStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SEALED      // all 6 checks PASSED → can receive jobs
+  SUSPENDED   // admin pause (complaints, investigation)
+  REVOKED
+}
+
+enum VerificationType {
+  GOVERNMENT_ID
+  PHONE_ADDRESS
+  REFERENCES
+  SKILLS_TEST
+  GUARANTOR
+  BACKGROUND_CHECK
+}
+
+enum VerificationStatus {
+  PENDING
+  PASSED
+  FAILED
+}
+
+enum TimeWindow {
+  MORNING   // 08:00–12:00
+  AFTERNOON // 12:00–16:00
+  EVENING   // 16:00–19:00
+}
+
+enum JobStatus {
+  PENDING_ASSIGNMENT // submitted, waiting for admin
+  ASSIGNED           // offered to an artisan, awaiting accept/decline
+  ACCEPTED           // artisan accepted, inspecting
+  QUOTED             // quote submitted, awaiting client
+  AWAITING_PAYMENT   // client approved quote
+  PAID               // funds held, artisan not yet on site
+  IN_PROGRESS        // artisan on site with before-photo → materials advance released
+  WORK_SUBMITTED     // artisan marked done; 48h auto-release clock running
+  COMPLETED          // funds released
+  DISPUTED
+  REFUNDED           // closed with full refund
+  CANCELLED
+}
+
+enum AssignmentStatus {
+  OFFERED
+  ACCEPTED
+  DECLINED
+  EXPIRED
+  WITHDRAWN // admin reassigned
+}
+
+enum QuoteStatus {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  SUPERSEDED // artisan revised it
+}
+
+enum QuoteItemKind {
+  LABOUR
+  MATERIAL
+}
+
+// Escrow state machine (unit-tested in packages/shared)
+// In-flight transfers/refunds are tracked on Payout/Refund rows, not here.
+enum PaymentStatus {
+  INITIALIZED        // Paystack transaction initialised, client not yet paid
+  HELD               // charge.success verified → full amount in escrow
+  PARTIALLY_RELEASED // materials advance released; labour + commission still held
+  RELEASED           // escrow fully settled to artisan + commission
+  PARTIALLY_REFUNDED // dispute: part refunded, rest released
+  REFUNDED           // dispute/cancellation: escrow refunded
+  FAILED
+  ABANDONED
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REVERSED
+}
+
+enum ReleaseTrigger {
+  MATERIALS_ADVANCE // job started on site
+  CLIENT_CONFIRMED
+  AUTO_RELEASE
+  DISPUTE_RESOLUTION
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+}
+
+// Double-entry: every LedgerEntry moves amount from debitAccount → creditAccount.
+enum LedgerAccount {
+  PAYSTACK_INFLOW     // external: money received from client
+  ESCROW              // held funds (per job)
+  ARTISAN_PAYABLE     // owed to artisan, not yet transferred
+  ARTISAN_PAID_OUT    // external: transferred to artisan bank
+  PLATFORM_COMMISSION // Jiko revenue
+  PAYSTACK_FEES       // expense: charge + transfer fees, absorbed by Jiko
+  PLATFORM_LOSSES     // expense: e.g. materials advance refunded under admin override
+  CLIENT_REFUNDED     // external: returned to client
+}
+
+enum DisputeKind {
+  COMPLETION // raised instead of confirming completion
+  WARRANTY   // 7-day redo claim on a platform-paid job
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+}
+
+enum DisputeResolution {
+  RELEASE_TO_ARTISAN
+  FULL_REFUND
+  PARTIAL_REFUND
+  REDO_ORDERED
+}
+
+enum ReviewDirection {
+  CLIENT_TO_ARTISAN
+  ARTISAN_TO_CLIENT
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  SMS
+  PUSH
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  SKIPPED
+}
+
+enum FileSensitivity {
+  STANDARD  // job/dispute photos: job participants + admins, signed URLs
+  SENSITIVE // ID docs, verification evidence: private bucket, admins only, every view audited
+}
+
+enum FileKind {
+  AVATAR
+  ID_DOCUMENT
+  VERIFICATION_EVIDENCE
+  JOB_PHOTO_BEFORE
+  JOB_PHOTO_AFTER
+  DISPUTE_EVIDENCE
+  MESSAGE_ATTACHMENT
+}
+
+// ─────────────────────────── Identity & auth ───────────────────────────
+
+model User {
+  id          String     @id @default(cuid())
+  phone       String     @unique // E.164, e.g. +2348012345678
+  name        String?
+  email       String?
+  roles       Role[]     @default([CLIENT])
+  status      UserStatus @default(ACTIVE)
+  defaultAreaId String?
+  lastLoginAt DateTime?
+  consentVersion String?   // Terms/Privacy version accepted (NDPA lawful basis)
+  consentedAt    DateTime?
+  deletedAt      DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  defaultArea      ServiceArea?   @relation(fields: [defaultAreaId], references: [id])
+  artisanProfile   ArtisanProfile?
+  refreshTokens    RefreshToken[]
+  devices          PushDevice[]
+  jobRequests      JobRequest[]   @relation("ClientJobs")
+  assignmentsMade  Assignment[]   @relation("AssignedBy")
+  payments         Payment[]
+  checksReviewed   VerificationCheck[] @relation("CheckReviewer")
+  disputesOpened   Dispute[]      @relation("DisputeOpener")
+  disputesResolved Dispute[]      @relation("DisputeResolver")
+  reviewsWritten   Review[]       @relation("ReviewAuthor")
+  reviewsReceived  Review[]       @relation("ReviewSubject")
+  messages         Message[]
+  notifications    Notification[]
+  files            File[]
+  auditLogs        AuditLog[]
+  statusEvents     JobStatusEvent[]
+
+  @@map("users")
+}
+
+model OtpChallenge {
+  id          String    @id @default(cuid())
+  phone       String
+  codeHash    String    // sha256(code + pepper); code never stored
+  attempts    Int       @default(0)
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  ipAddress   String?
+  createdAt   DateTime  @default(now())
+
+  @@index([phone, createdAt])
+  @@map("otp_challenges")
+}
+
+// Rotating refresh tokens. Re-use of a rotated token revokes the whole family.
+model RefreshToken {
+  id         String    @id @default(cuid())
+  userId     String
+  familyId   String
+  tokenHash  String    @unique // sha256 of the opaque token
+  replacedById String?
+  deviceInfo String?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([familyId])
+  @@map("refresh_tokens")
+}
+
+model PushDevice {
+  id            String   @id @default(cuid())
+  userId        String
+  expoPushToken String   @unique
+  platform      String   // android | ios
+  lastSeenAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("push_devices")
+}
+
+// ─────────────────────────── Catalog ───────────────────────────
+
+model Trade {
+  id        String  @id @default(cuid())
+  slug      String  @unique // plumbing | electrical | ac-repair
+  name      String
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
+
+  artisans    ArtisanTrade[]
+  jobRequests JobRequest[]
+
+  @@map("trades")
+}
+
+model ServiceArea {
+  id       String  @id @default(cuid())
+  slug     String  @unique // lekki | ajah | yaba
+  name     String
+  lga      String?
+  lat      Float   // centroid, for distance scoring
+  lng      Float
+  isActive Boolean @default(true)
+
+  artisans    ArtisanServiceArea[]
+  jobRequests JobRequest[]
+  users       User[]
+
+  @@map("service_areas")
+}
+
+// ─────────────────────────── Artisans & Craft Seal ───────────────────────────
+
+model ArtisanProfile {
+  id              String     @id @default(cuid())
+  userId          String     @unique
+  displayName     String
+  bio             String?
+  yearsExperience Int?
+  baseLat         Float?
+  baseLng         Float?
+  isAvailable     Boolean    @default(true)
+  sealStatus      SealStatus @default(NOT_STARTED)
+  sealGrantedAt   DateTime?
+
+  // Payout destination. accountNumberEnc is AES-256-GCM (app-level key from env) and is
+  // cleared once the Paystack transfer recipient exists; only the last 4 digits are kept.
+  bankCode               String?
+  accountNumberEnc       String?
+  accountNumberLast4     String?
+  accountName            String?
+  paystackRecipientCode  String?
+
+  // Cached matching signals — platform-completed jobs only (recomputed by worker)
+  ratingAvg          Float @default(0)
+  ratingCount        Int   @default(0)
+  jobsCompleted      Int   @default(0)
+  offersReceived     Int   @default(0)
+  offersAccepted     Int   @default(0)
+  avgResponseSeconds Int?
+  completionRate     Float @default(0) // completed / accepted
+  disputeRate        Float @default(0)
+  statsUpdatedAt     DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  trades       ArtisanTrade[]
+  serviceAreas ArtisanServiceArea[]
+  checks       VerificationCheck[]
+  assignments  Assignment[]
+  quotes       Quote[]
+  payouts      Payout[]
+
+  @@index([sealStatus, isAvailable])
+  @@map("artisan_profiles")
+}
+
+model ArtisanTrade {
+  artisanId String
+  tradeId   String
+  isPrimary Boolean @default(false)
+
+  artisan ArtisanProfile @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  trade   Trade          @relation(fields: [tradeId], references: [id])
+
+  @@id([artisanId, tradeId])
+  @@map("artisan_trades")
+}
+
+model ArtisanServiceArea {
+  artisanId String
+  areaId    String
+
+  artisan ArtisanProfile @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  area    ServiceArea    @relation(fields: [areaId], references: [id])
+
+  @@id([artisanId, areaId])
+  @@map("artisan_service_areas")
+}
+
+model VerificationCheck {
+  id             String             @id @default(cuid())
+  artisanId      String
+  type           VerificationType
+  status         VerificationStatus @default(PENDING)
+  reviewerId     String?
+  reviewedAt     DateTime?
+  notes          String?
+  details        Json?   // e.g. references' names/phones, guarantor details, test score
+  evidenceFileId String? @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  artisan  ArtisanProfile @relation(fields: [artisanId], references: [id], onDelete: Cascade)
+  reviewer User?          @relation("CheckReviewer", fields: [reviewerId], references: [id])
+  evidence File?          @relation("CheckEvidence", fields: [evidenceFileId], references: [id])
+
+  @@unique([artisanId, type])
+  @@map("verification_checks")
+}
+
+// ─────────────────────────── Jobs ───────────────────────────
+
+model JobRequest {
+  id            String     @id @default(cuid())
+  ref           String     @unique // human-friendly, e.g. JK-1042
+  clientId      String
+  tradeId       String
+  areaId        String
+  description   String
+  addressLine   String
+  landmark      String?
+  lat           Float?
+  lng           Float?
+  preferredDate DateTime   @db.Date
+  timeWindow    TimeWindow
+  status        JobStatus  @default(PENDING_ASSIGNMENT)
+
+  startedAt          DateTime? // artisan on site (before-photo uploaded)
+  workSubmittedAt    DateTime?
+  autoReleaseAt      DateTime? // workSubmittedAt + 48h
+  completedAt        DateTime?
+  guaranteeExpiresAt DateTime? // completedAt + 7d, platform-paid jobs only
+  cancelledAt        DateTime?
+  cancelReason       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client       User             @relation("ClientJobs", fields: [clientId], references: [id])
+  trade        Trade            @relation(fields: [tradeId], references: [id])
+  area         ServiceArea      @relation(fields: [areaId], references: [id])
+  assignments  Assignment[]
+  quotes       Quote[]
+  payments     Payment[]
+  payouts      Payout[]
+  disputes     Dispute[]
+  reviews      Review[]
+  messages     Message[]
+  files        File[]
+  statusEvents JobStatusEvent[]
+  ledger       LedgerEntry[]
+
+  @@index([status, createdAt])
+  @@index([clientId])
+  @@map("job_requests")
+}
+
+// Append-only history of status transitions (kanban, dispute timeline, metrics)
+model JobStatusEvent {
+  id        String     @id @default(cuid())
+  jobId     String
+  from      JobStatus?
+  to        JobStatus
+  actorId   String?    // null = system (e.g. auto-release worker)
+  note      String?
+  createdAt DateTime   @default(now())
+
+  job   JobRequest @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  actor User?      @relation(fields: [actorId], references: [id])
+
+  @@index([jobId, createdAt])
+  @@map("job_status_events")
+}
+
+model Assignment {
+  id            String           @id @default(cuid())
+  jobId         String
+  artisanId     String
+  assignedById  String
+  status        AssignmentStatus @default(OFFERED)
+  offeredAt     DateTime         @default(now())
+  expiresAt     DateTime?
+  respondedAt   DateTime?
+  declineReason String?
+  // Snapshot of signals at assignment time → training data for weighted matching
+  distanceKm    Float?
+  matchSnapshot Json?  // { rating, completionRate, avgResponseSeconds, jobsCompleted, areaMatch, ... }
+
+  job        JobRequest     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  artisan    ArtisanProfile @relation(fields: [artisanId], references: [id])
+  assignedBy User           @relation("AssignedBy", fields: [assignedById], references: [id])
+  quotes     Quote[]
+
+  // + raw-SQL partial unique index: one OFFERED/ACCEPTED assignment per job
+  @@index([jobId])
+  @@index([artisanId, status])
+  @@map("assignments")
+}
+
+model Quote {
+  id                 String      @id @default(cuid())
+  jobId              String
+  assignmentId       String
+  artisanId          String
+  version            Int         @default(1)
+  status             QuoteStatus @default(SUBMITTED)
+  labourKobo         Int
+  materialsKobo      Int
+  totalKobo          Int         // what the client pays
+  commissionBps      Int         // snapshot, 1500 = 15%
+  commissionKobo     Int
+  artisanPayoutKobo  Int         // totalKobo - commissionKobo
+  notes              String?
+  submittedAt        DateTime    @default(now())
+  decidedAt          DateTime?
+  rejectionReason    String?
+
+  job        JobRequest     @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  assignment Assignment     @relation(fields: [assignmentId], references: [id])
+  artisan    ArtisanProfile @relation(fields: [artisanId], references: [id])
+  items      QuoteItem[]
+  payment    Payment?
+
+  @@unique([jobId, version])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id             String        @id @default(cuid())
+  quoteId        String
+  kind           QuoteItemKind
+  description    String
+  quantity       Int           @default(1)
+  unitPriceKobo  Int
+  totalKobo      Int
+  sortOrder      Int           @default(0)
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@map("quote_items")
+}
+
+// ─────────────────────────── Money ───────────────────────────
+
+model Payment {
+  id                String        @id @default(cuid())
+  jobId             String
+  quoteId           String        @unique
+  clientId          String
+  amountKobo        Int
+  currency          String        @default("NGN")
+  status            PaymentStatus @default(INITIALIZED)
+  paystackReference String        @unique // our generated reference
+  accessCode        String?
+  channel           String?       // card | bank_transfer | ussd ...
+  feesKobo          Int?          // Paystack fee reported on verify
+  paidAt            DateTime?
+  // Caches of ledger-derived totals. Written only in the same DB transaction as the ledger rows.
+  refundedKobo      Int           @default(0)
+  releasedKobo      Int           @default(0)
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  job     JobRequest    @relation(fields: [jobId], references: [id])
+  quote   Quote         @relation(fields: [quoteId], references: [id])
+  client  User          @relation(fields: [clientId], references: [id])
+  payouts Payout[]
+  refunds Refund[]
+  ledger  LedgerEntry[]
+
+  @@index([status])
+  @@map("payments")
+}
+
+model Payout {
+  id                String         @id @default(cuid())
+  jobId             String
+  paymentId         String
+  artisanId         String
+  amountKobo        Int
+  status            PayoutStatus   @default(PENDING)
+  trigger           ReleaseTrigger
+  transferReference String         @unique // idempotency key sent to Paystack
+  transferCode      String?
+  recipientCode     String
+  feeKobo           Int?           // Paystack transfer fee (absorbed by Jiko)
+  failureReason     String?
+  initiatedAt       DateTime       @default(now())
+  completedAt       DateTime?
+
+  job     JobRequest     @relation(fields: [jobId], references: [id])
+  payment Payment        @relation(fields: [paymentId], references: [id])
+  artisan ArtisanProfile @relation(fields: [artisanId], references: [id])
+  ledger  LedgerEntry[]
+
+  @@index([status])
+  @@map("payouts")
+}
+
+model Refund {
+  id                String       @id @default(cuid())
+  paymentId         String
+  disputeId         String?
+  amountKobo        Int
+  status            RefundStatus @default(PENDING)
+  paystackRefundId  String?      @unique
+  reason            String?
+  // Materials advance is non-refundable by default. When an admin overrides, the advanced
+  // portion is funded by Jiko (ledger: PLATFORM_LOSSES → CLIENT_REFUNDED).
+  includesMaterialsAdvance Boolean @default(false)
+  overrideReason           String?
+  initiatedById     String
+  createdAt         DateTime     @default(now())
+  completedAt       DateTime?
+
+  payment Payment       @relation(fields: [paymentId], references: [id])
+  dispute Dispute?      @relation(fields: [disputeId], references: [id])
+  ledger  LedgerEntry[]
+
+  @@map("refunds")
+}
+
+// Append-only (UPDATE/DELETE blocked by DB trigger). Balanced by construction.
+model LedgerEntry {
+  id            String        @id @default(cuid())
+  txnId         String        // groups entries written in one DB transaction
+  debitAccount  LedgerAccount
+  creditAccount LedgerAccount
+  amountKobo    Int           // > 0 (CHECK)
+  jobId         String?
+  paymentId     String?
+  payoutId      String?
+  refundId      String?
+  memo          String
+  createdById   String?       // null = system
+  createdAt     DateTime      @default(now())
+
+  job     JobRequest? @relation(fields: [jobId], references: [id])
+  payment Payment?    @relation(fields: [paymentId], references: [id])
+  payout  Payout?     @relation(fields: [payoutId], references: [id])
+  refund  Refund?     @relation(fields: [refundId], references: [id])
+
+  @@index([jobId])
+  @@index([txnId])
+  @@index([createdAt])
+  @@map("ledger_entries")
+}
+
+// Every inbound webhook stored once; unique key gives idempotency
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  provider    String    // paystack
+  eventKey    String    // e.g. "charge.success:<reference>" / "transfer.success:<transfer_code>"
+  eventType   String
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  error       String?
+
+  @@unique([provider, eventKey])
+  @@map("webhook_events")
+}
+
+// ─────────────────────────── Trust: disputes & reviews ───────────────────────────
+
+model Dispute {
+  id              String             @id @default(cuid())
+  jobId           String
+  kind            DisputeKind
+  openedById      String
+  reason          String
+  description     String
+  status          DisputeStatus      @default(OPEN)
+  resolution      DisputeResolution?
+  refundKobo      Int?
+  resolutionNotes String?
+  resolvedById    String?
+  resolvedAt      DateTime?
+  createdAt       DateTime           @default(now())
+
+  job        JobRequest @relation(fields: [jobId], references: [id])
+  openedBy   User       @relation("DisputeOpener", fields: [openedById], references: [id])
+  resolvedBy User?      @relation("DisputeResolver", fields: [resolvedById], references: [id])
+  refunds    Refund[]
+  files      File[]
+
+  @@index([status])
+  @@map("disputes")
+}
+
+model Review {
+  id        String          @id @default(cuid())
+  jobId     String
+  authorId  String
+  subjectId String
+  direction ReviewDirection
+  rating    Int             // 1–5 (CHECK)
+  comment   String?
+  isHidden  Boolean         @default(false) // admin moderation
+  createdAt DateTime        @default(now())
+
+  job     JobRequest @relation(fields: [jobId], references: [id])
+  author  User       @relation("ReviewAuthor", fields: [authorId], references: [id])
+  subject User       @relation("ReviewSubject", fields: [subjectId], references: [id])
+
+  @@unique([jobId, authorId])
+  @@index([subjectId])
+  @@map("reviews")
+}
+
+// ─────────────────────────── Comms ───────────────────────────
+
+model Message {
+  id               String    @id @default(cuid())
+  jobId            String
+  senderId         String
+  body             String    // as shown to the other party (contact info masked pre-payment)
+  originalBody     String?   // set only when masking changed the text; admin-visible
+  contactInfoFlag  Boolean   @default(false)
+  readAt           DateTime?
+  createdAt        DateTime  @default(now())
+
+  job    JobRequest @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  sender User       @relation(fields: [senderId], references: [id])
+  files  File[]
+
+  @@index([jobId, createdAt])
+  @@map("messages")
+}
+
+model Notification {
+  id                String              @id @default(cuid())
+  userId            String
+  channel           NotificationChannel
+  template          String              // e.g. job.assigned, quote.submitted
+  payload           Json
+  status            NotificationStatus  @default(QUEUED)
+  providerMessageId String?
+  attempts          Int                 @default(0)
+  error             String?
+  fallbackOfId      String?             // SMS sent because this WhatsApp failed
+  readAt            DateTime?           // in-app inbox
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+
+  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fallbackOf Notification? @relation("Fallback", fields: [fallbackOfId], references: [id])
+  fallbacks  Notification[] @relation("Fallback")
+
+  @@index([userId, createdAt])
+  @@index([status])
+  @@map("notifications")
+}
+
+// ─────────────────────────── Files ───────────────────────────
+
+model File {
+  id           String   @id @default(cuid())
+  ownerId      String
+  kind         FileKind
+  sensitivity  FileSensitivity
+  bucket       String
+  storageKey   String   @unique // S3 object key
+  mimeType     String
+  sizeBytes    Int
+  width        Int?
+  height       Int?
+  jobId        String?
+  disputeId    String?
+  messageId    String?
+  uploadedAt   DateTime? // null until client confirms the presigned PUT
+  createdAt    DateTime @default(now())
+
+  owner             User               @relation(fields: [ownerId], references: [id])
+  job               JobRequest?        @relation(fields: [jobId], references: [id])
+  dispute           Dispute?           @relation(fields: [disputeId], references: [id])
+  message           Message?           @relation(fields: [messageId], references: [id])
+  verificationCheck VerificationCheck? @relation("CheckEvidence")
+
+  @@index([jobId])
+  @@map("files")
+}
+
+// ─────────────────────────── Audit ───────────────────────────
+
+// Append-only (DB trigger). Written for every admin mutation + sensitive system actions.
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  Role?
+  action     String   // e.g. assignment.create, verification.pass, dispute.resolve
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}

@@ -1,0 +1,21 @@
+{
+  "name": "jiko",
+  "private": true,
+  "packageManager": "pnpm@10.28.0",
+  "engines": { "node": ">=20.11" },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev --parallel",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "turbo run test:e2e",
+    "db:migrate": "pnpm --filter @jiko/api db:migrate",
+    "db:seed": "pnpm --filter @jiko/api db:seed",
+    "db:reset": "pnpm --filter @jiko/api db:reset"
+  },
+  "devDependencies": {
+    "turbo": "2.11.11",
+    "typescript": "~5.8.3",
+    "prettier": "^3.3.3"
+  }
+}
