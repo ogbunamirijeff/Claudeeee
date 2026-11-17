@@ -38,36 +38,72 @@ export function applyBps(amount: Kobo, bps: number): Kobo {
   return Math.floor((amount * bps + 5_000) / 10_000);
 }
 
+export interface QuotePolicy {
+  /** Platform commission on the whole quote, in basis points (1500 = 15%). */
+  commissionBps: number;
+  /** Max materials released when the job starts; the rest is held until completion. */
+  materialsAdvanceCapKobo: Kobo;
+  /** Quotes whose materials exceed this share of the total need admin approval (7000 = 70%). */
+  materialsReviewThresholdBps: number;
+}
+
+export const DEFAULT_QUOTE_POLICY: QuotePolicy = {
+  commissionBps: 1500,
+  materialsAdvanceCapKobo: 15_000_000, // ₦150,000
+  materialsReviewThresholdBps: 7000,
+};
+
 export interface QuoteSplit {
   totalKobo: Kobo;
   commissionKobo: Kobo;
+  /** Commission taken from labour (always first). */
+  commissionFromLabourKobo: Kobo;
+  /** Only when labour can't cover the commission: the shortfall, taken from materials. */
+  commissionFromMaterialsKobo: Kobo;
   artisanPayoutKobo: Kobo;
-  /** Released to the artisan when they start the job on site. */
+  /** Released when the artisan starts on site: materials net of any shortfall, capped. */
   materialsAdvanceKobo: Kobo;
-  /** Released to the artisan on completion (labour minus all commission). */
+  /** Released on completion: labour net of commission + materials above the cap. */
   completionPayoutKobo: Kobo;
+  /** True when materials exceed the review threshold → admin must approve before payment. */
+  requiresAdminReview: boolean;
 }
 
 /**
- * Commission is charged on the whole quote (labour + materials). The materials portion is
- * advanced in full when the job starts; all commission is taken from what remains in escrow.
+ * How a quote's money is split.
+ * - Commission is charged on the whole quote and taken from labour first; if labour can't cover
+ *   it, only the shortfall comes out of materials.
+ * - Materials (net of any shortfall) are advanced at job start, up to the cap.
  * Invariant: materialsAdvance + completionPayout + commission === total.
  */
-export function splitQuote(labourKobo: Kobo, materialsKobo: Kobo, commissionBps: number): QuoteSplit {
+export function splitQuote(
+  labourKobo: Kobo,
+  materialsKobo: Kobo,
+  policy: QuotePolicy = DEFAULT_QUOTE_POLICY,
+): QuoteSplit {
   assertKobo(labourKobo, 'labourKobo');
   assertKobo(materialsKobo, 'materialsKobo');
+  assertKobo(policy.materialsAdvanceCapKobo, 'materialsAdvanceCapKobo');
   const totalKobo = labourKobo + materialsKobo;
   assertKobo(totalKobo, 'totalKobo');
-  const commissionKobo = applyBps(totalKobo, commissionBps);
-  if (commissionKobo > labourKobo) {
-    // Otherwise the materials advance would leave escrow unable to cover commission.
-    throw new RangeError('Labour must be at least the platform commission on the whole quote');
-  }
+
+  const commissionKobo = applyBps(totalKobo, policy.commissionBps);
+  const commissionFromLabourKobo = Math.min(commissionKobo, labourKobo);
+  const commissionFromMaterialsKobo = commissionKobo - commissionFromLabourKobo;
+  const materialsNet = materialsKobo - commissionFromMaterialsKobo;
+  const materialsAdvanceKobo = Math.min(materialsNet, policy.materialsAdvanceCapKobo);
+  const completionPayoutKobo =
+    labourKobo - commissionFromLabourKobo + (materialsNet - materialsAdvanceKobo);
+
   return {
     totalKobo,
     commissionKobo,
+    commissionFromLabourKobo,
+    commissionFromMaterialsKobo,
     artisanPayoutKobo: totalKobo - commissionKobo,
-    materialsAdvanceKobo: materialsKobo,
-    completionPayoutKobo: labourKobo - commissionKobo,
+    materialsAdvanceKobo,
+    completionPayoutKobo,
+    requiresAdminReview:
+      totalKobo > 0 && materialsKobo * 10_000 > totalKobo * policy.materialsReviewThresholdBps,
   };
 }

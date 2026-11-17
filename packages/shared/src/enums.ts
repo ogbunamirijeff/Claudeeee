@@ -52,6 +52,9 @@ export type AssignmentStatus = keyof typeof AssignmentStatus;
 export const QuoteStatus = e('SUBMITTED', 'APPROVED', 'REJECTED', 'SUPERSEDED');
 export type QuoteStatus = keyof typeof QuoteStatus;
 
+export const QuoteReviewStatus = e('NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED');
+export type QuoteReviewStatus = keyof typeof QuoteReviewStatus;
+
 export const QuoteItemKind = e('LABOUR', 'MATERIAL');
 export type QuoteItemKind = keyof typeof QuoteItemKind;
 
@@ -122,6 +125,7 @@ export const FileKind = e(
   'VERIFICATION_EVIDENCE',
   'JOB_PHOTO_BEFORE',
   'JOB_PHOTO_AFTER',
+  'MATERIALS_RECEIPT',
   'DISPUTE_EVIDENCE',
   'MESSAGE_ATTACHMENT',
 );
@@ -143,6 +147,7 @@ export const ALL_ENUMS = {
   JobStatus,
   AssignmentStatus,
   QuoteStatus,
+  QuoteReviewStatus,
   QuoteItemKind,
   PaymentStatus,
   PayoutStatus,

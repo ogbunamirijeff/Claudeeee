@@ -87,6 +87,14 @@ enum QuoteStatus {
   SUPERSEDED // artisan revised it
 }
 
+// Quotes whose materials exceed 70% of the total need Jiko approval before payment.
+enum QuoteReviewStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum QuoteItemKind {
   LABOUR
   MATERIAL
@@ -187,6 +195,7 @@ enum FileKind {
   VERIFICATION_EVIDENCE
   JOB_PHOTO_BEFORE
   JOB_PHOTO_AFTER
+  MATERIALS_RECEIPT // required before WORK_SUBMITTED when the quote has materials
   DISPUTE_EVIDENCE
   MESSAGE_ATTACHMENT
 }
@@ -216,6 +225,7 @@ model User {
   assignmentsMade  Assignment[]   @relation("AssignedBy")
   payments         Payment[]
   checksReviewed   VerificationCheck[] @relation("CheckReviewer")
+  quotesReviewed   Quote[]        @relation("QuoteReviewer")
   disputesOpened   Dispute[]      @relation("DisputeOpener")
   disputesResolved Dispute[]      @relation("DisputeResolver")
   reviewsWritten   Review[]       @relation("ReviewAuthor")
@@ -498,7 +508,17 @@ model Quote {
   totalKobo          Int         // what the client pays
   commissionBps      Int         // snapshot, 1500 = 15%
   commissionKobo     Int
+  // Commission comes from labour first; only a shortfall is taken from materials.
+  commissionFromMaterialsKobo Int @default(0)
   artisanPayoutKobo  Int         // totalKobo - commissionKobo
+  // Snapshot of the split (packages/shared splitQuote) at submission time.
+  materialsAdvanceCapKobo Int
+  materialsAdvanceKobo    Int    // released when the job starts on site
+  completionPayoutKobo    Int    // released on completion
+  reviewStatus       QuoteReviewStatus @default(NOT_REQUIRED)
+  reviewedById       String?
+  reviewedAt         DateTime?
+  reviewNote         String?
   notes              String?
   submittedAt        DateTime    @default(now())
   decidedAt          DateTime?
@@ -507,10 +527,12 @@ model Quote {
   job        JobRequest     @relation(fields: [jobId], references: [id], onDelete: Cascade)
   assignment Assignment     @relation(fields: [assignmentId], references: [id])
   artisan    ArtisanProfile @relation(fields: [artisanId], references: [id])
+  reviewedBy User?          @relation("QuoteReviewer", fields: [reviewedById], references: [id])
   items      QuoteItem[]
   payment    Payment?
 
   @@unique([jobId, version])
+  @@index([reviewStatus])
   @@map("quotes")
 }
 

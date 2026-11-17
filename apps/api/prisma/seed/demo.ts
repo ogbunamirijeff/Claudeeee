@@ -2,7 +2,7 @@
  * Demo data for local development and staging: ~30 artisans at various verification stages,
  * clients, and open job requests. Refuses to run in production. Idempotent.
  */
-import { PrismaClient, SealStatus, VerificationType } from '@prisma/client';
+import { PrismaClient, type SealStatus, type VerificationType } from '@prisma/client';
 import { CLIENT_NAMES, FIRST_NAMES, LAST_NAMES, SAMPLE_JOBS } from './data';
 import { seedReference } from './reference';
 
@@ -12,12 +12,17 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const CHECK_TYPES: VerificationType[] = [
-  'GOVERNMENT_ID', 'PHONE_ADDRESS', 'REFERENCES', 'SKILLS_TEST', 'GUARANTOR', 'BACKGROUND_CHECK',
+  'GOVERNMENT_ID',
+  'PHONE_ADDRESS',
+  'REFERENCES',
+  'SKILLS_TEST',
+  'GUARANTOR',
+  'BACKGROUND_CHECK',
 ];
 
 // Deterministic PRNG so every run produces the same demo data.
 let s = 42;
-const rand = () => ((s = (s * 1_103_515_245 + 12_345) % 2 ** 31) / 2 ** 31);
+const rand = () => (s = (s * 1_103_515_245 + 12_345) % 2 ** 31) / 2 ** 31;
 const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)]!;
 
 const artisanPhone = (i: number) => `+23480300001${String(i).padStart(2, '0')}`;
@@ -29,7 +34,8 @@ async function main() {
     const admin = await seedReference(prisma);
     const trades = await prisma.trade.findMany();
     const areas = await prisma.serviceArea.findMany();
-    const bySlug = <T extends { slug: string }>(xs: T[], slug: string) => xs.find((x) => x.slug === slug)!;
+    const bySlug = <T extends { slug: string }>(xs: T[], slug: string) =>
+      xs.find((x) => x.slug === slug)!;
 
     // 30 artisans: 0–19 sealed, 20–25 mid-verification, 26–29 just signed up.
     for (let i = 0; i < 30; i++) {
@@ -43,7 +49,12 @@ async function main() {
 
       const user = await prisma.user.upsert({
         where: { phone: artisanPhone(i) },
-        create: { phone: artisanPhone(i), name, roles: ['CLIENT', 'ARTISAN'], defaultAreaId: home.id },
+        create: {
+          phone: artisanPhone(i),
+          name,
+          roles: ['CLIENT', 'ARTISAN'],
+          defaultAreaId: home.id,
+        },
         update: {},
       });
       const profile = await prisma.artisanProfile.upsert({
@@ -71,7 +82,15 @@ async function main() {
       });
 
       for (const [n, type] of CHECK_TYPES.entries()) {
-        const status = sealed ? 'PASSED' : sealStatus === 'IN_PROGRESS' ? (n < 3 ? 'PASSED' : n === 3 && i % 2 ? 'FAILED' : 'PENDING') : 'PENDING';
+        const status = sealed
+          ? 'PASSED'
+          : sealStatus === 'IN_PROGRESS'
+            ? n < 3
+              ? 'PASSED'
+              : n === 3 && i % 2
+                ? 'FAILED'
+                : 'PENDING'
+            : 'PENDING';
         const decided = status !== 'PENDING';
         await prisma.verificationCheck.upsert({
           where: { artisanId_type: { artisanId: profile.id, type } },
@@ -81,7 +100,10 @@ async function main() {
             status,
             reviewerId: decided ? admin.id : null,
             reviewedAt: decided ? new Date(Date.now() - (i + 10) * 86_400_000) : null,
-            notes: status === 'FAILED' ? 'Did not complete the practical test within the allotted time.' : null,
+            notes:
+              status === 'FAILED'
+                ? 'Did not complete the practical test within the allotted time.'
+                : null,
           },
           update: {},
         });
@@ -101,10 +123,14 @@ async function main() {
     }
 
     // Open job requests waiting for assignment (later phases add jobs in other states).
-    const existingJobs = await prisma.jobRequest.count({ where: { clientId: { in: clients.map((c) => c.id) } } });
+    const existingJobs = await prisma.jobRequest.count({
+      where: { clientId: { in: clients.map((c) => c.id) } },
+    });
     if (existingJobs === 0) {
       for (const [i, j] of SAMPLE_JOBS.entries()) {
-        const [{ nextval }] = await prisma.$queryRaw<[{ nextval: bigint }]>`SELECT nextval('job_ref_seq')`;
+        const [{ nextval }] = await prisma.$queryRaw<
+          [{ nextval: bigint }]
+        >`SELECT nextval('job_ref_seq')`;
         const client = clients[i % clients.length]!;
         const preferredDate = new Date();
         preferredDate.setUTCHours(0, 0, 0, 0);
@@ -131,7 +157,9 @@ async function main() {
       prisma.artisanProfile.count({ where: { sealStatus: 'SEALED' } }),
       prisma.jobRequest.count(),
     ]);
-    console.log(`Demo data seeded: ${artisans} artisans (${sealed} sealed), ${clients.length} clients, ${jobs} jobs`);
+    console.log(
+      `Demo data seeded: ${artisans} artisans (${sealed} sealed), ${clients.length} clients, ${jobs} jobs`,
+    );
   } finally {
     await prisma.$disconnect();
   }

@@ -4,14 +4,14 @@ Marketplace connecting **Craft Seal–verified artisans** (plumbers, electrician
 
 Pilot scope: ~30 artisans, ~100 jobs in Lekki, Ajah and Yaba.
 
-| Phase | Scope | Status |
-|---|---|---|
-| 1 | Monorepo, DB schema, phone + OTP auth, roles, audit log | ✅ done |
-| 2 | Job request → admin assignment → quote → approval | — |
-| 3 | Paystack payment, escrow, materials advance, release/refund, ledger | — |
-| 4 | Artisan onboarding + Craft Seal verification | — |
-| 5 | Reviews, disputes, notifications (WhatsApp/SMS/push) | — |
-| 6 | Admin metrics, marketing site, deploy | — |
+| Phase | Scope                                                               | Status  |
+| ----- | ------------------------------------------------------------------- | ------- |
+| 1     | Monorepo, DB schema, phone + OTP auth, roles, audit log             | ✅ done |
+| 2     | Job request → admin assignment → quote → approval                   | —       |
+| 3     | Paystack payment, escrow, materials advance, release/refund, ledger | —       |
+| 4     | Artisan onboarding + Craft Seal verification                        | —       |
+| 5     | Reviews, disputes, notifications (WhatsApp/SMS/push)                | —       |
+| 6     | Admin metrics, marketing site, deploy                               | —       |
 
 ## Repository layout
 
@@ -57,15 +57,15 @@ Mobile: `pnpm --filter @jiko/mobile android`. The Android emulator reaches your 
 
 ## Commands
 
-| Command | What it does |
-|---|---|
-| `pnpm build` / `pnpm typecheck` | Build / type-check every package |
-| `pnpm test` | Unit tests (shared + API) |
-| `pnpm test:e2e` | API end-to-end tests against a real Postgres (`jiko_test` database; override with `TEST_DATABASE_URL`) |
-| `pnpm db:migrate` | Create/apply migrations in development |
-| `pnpm --filter @jiko/api db:deploy` | Apply migrations in production (non-destructive) |
-| `pnpm db:seed` | Reference data only (trades, areas, first admin) — safe in production |
-| `pnpm --filter @jiko/api db:seed:demo` | Demo data; refuses to run when `NODE_ENV=production` |
+| Command                                | What it does                                                                                           |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `pnpm build` / `pnpm typecheck`        | Build / type-check every package                                                                       |
+| `pnpm test`                            | Unit tests (shared + API)                                                                              |
+| `pnpm test:e2e`                        | API end-to-end tests against a real Postgres (`jiko_test` database; override with `TEST_DATABASE_URL`) |
+| `pnpm db:migrate`                      | Create/apply migrations in development                                                                 |
+| `pnpm --filter @jiko/api db:deploy`    | Apply migrations in production (non-destructive)                                                       |
+| `pnpm db:seed`                         | Reference data only (trades, areas, first admin) — safe in production                                  |
+| `pnpm --filter @jiko/api db:seed:demo` | Demo data; refuses to run when `NODE_ENV=production`                                                   |
 
 The e2e tests need the test database to exist once: `createdb -O jiko jiko_test`.
 
@@ -73,19 +73,19 @@ The e2e tests need the test database to exist once: `createdb -O jiko jiko_test`
 
 All routes are under `/v1` except `/health`. Errors share one shape: `{ statusCode, code, message, details? }`.
 
-| Method | Path | Access | Notes |
-|---|---|---|---|
-| POST | `/auth/otp/request` | public | `{ phone }` — any Nigerian format (`0803…`, `+234…`) |
-| POST | `/auth/otp/verify` | public | `{ phone, code, acceptTerms? }` → tokens + user. `acceptTerms` required on sign-up or when the Terms change |
-| POST | `/auth/refresh` | public | `{ refreshToken }` → new token pair (rotation) |
-| POST | `/auth/logout` | public | `{ refreshToken }` |
-| GET/PATCH | `/me` | signed in | Profile (name, email, default area) |
-| GET | `/catalog/trades`, `/catalog/areas` | public | |
-| GET | `/admin/users` | ADMIN | `?role=&q=&take=&cursor=` |
-| PATCH | `/admin/users/:id/roles` | ADMIN | `{ roles, reason }` — audited |
-| PATCH | `/admin/users/:id/status` | ADMIN | `{ status: ACTIVE\|SUSPENDED, reason }` — audited; suspension revokes sessions |
-| GET | `/admin/audit-logs` | ADMIN | `?entityType=&entityId=&actorId=` |
-| GET | `/health` | public | DB connectivity |
+| Method    | Path                                | Access    | Notes                                                                                                       |
+| --------- | ----------------------------------- | --------- | ----------------------------------------------------------------------------------------------------------- |
+| POST      | `/auth/otp/request`                 | public    | `{ phone }` — any Nigerian format (`0803…`, `+234…`)                                                        |
+| POST      | `/auth/otp/verify`                  | public    | `{ phone, code, acceptTerms? }` → tokens + user. `acceptTerms` required on sign-up or when the Terms change |
+| POST      | `/auth/refresh`                     | public    | `{ refreshToken }` → new token pair (rotation)                                                              |
+| POST      | `/auth/logout`                      | public    | `{ refreshToken }`                                                                                          |
+| GET/PATCH | `/me`                               | signed in | Profile (name, email, default area)                                                                         |
+| GET       | `/catalog/trades`, `/catalog/areas` | public    |                                                                                                             |
+| GET       | `/admin/users`                      | ADMIN     | `?role=&q=&take=&cursor=`                                                                                   |
+| PATCH     | `/admin/users/:id/roles`            | ADMIN     | `{ roles, reason }` — audited                                                                               |
+| PATCH     | `/admin/users/:id/status`           | ADMIN     | `{ status: ACTIVE\|SUSPENDED, reason }` — audited; suspension revokes sessions                              |
+| GET       | `/admin/audit-logs`                 | ADMIN     | `?entityType=&entityId=&actorId=`                                                                           |
+| GET       | `/health`                           | public    | DB connectivity                                                                                             |
 
 ### Auth design
 
@@ -99,6 +99,7 @@ All routes are under `/v1` except `/health`. Errors share one shape: `{ statusCo
 ### Data integrity (enforced in Postgres, not only in code)
 
 Migration `*_integrity` adds:
+
 - CHECK constraints: money ≥ 0; quote totals add up; labour covers commission; ratings 1–5; canonical +234 phones; a decided verification check must have a reviewer.
 - **Append-only** triggers on `ledger_entries`, `audit_logs` and `job_status_events`: UPDATE, DELETE and TRUNCATE all fail.
 - Partial unique indexes: one active assignment, one live quote, one open dispute and one live payment per job.
@@ -108,7 +109,10 @@ Migration `*_integrity` adds:
 
 - Commission: **15% of the whole quote** (labour + materials), snapshotted on each quote (`commissionBps`).
 - Paystack charge **and** transfer fees are absorbed by Jiko and recorded under `PAYSTACK_FEES` in the ledger.
-- **Materials advance**: when the artisan starts the job on site (with a before-photo), the materials portion is released to them. Labour and commission stay in escrow until completion. The advance is non-refundable by default; an admin override refunds it from Jiko's funds (`PLATFORM_LOSSES`). Because all commission comes out of what remains in escrow, a quote's labour must be ≥ the commission on the whole quote. This is enforced in `splitQuote()` and by a DB CHECK.
+- **Commission source**: taken from labour first. If labour can't cover it, only the shortfall comes out of the materials share.
+- **Materials advance**: when the artisan starts the job on site (with a before-photo), the materials share is released to them, up to **₦150,000** (`MATERIALS_ADVANCE_CAP_KOBO`); anything above the cap is held until completion. Labour and commission stay in escrow. The advance is non-refundable by default; an admin override refunds it from Jiko's funds (`PLATFORM_LOSSES`). Split logic: `splitQuote()` in `packages/shared/src/money.ts`, snapshotted on each quote and checked by DB constraints.
+- **Materials-heavy quotes**: if materials are more than 70% of the total (`MATERIALS_REVIEW_THRESHOLD_BPS`), a Jiko admin must approve the quote before the client can pay.
+- **Materials receipt**: a receipt photo is required before a job with materials can be marked `WORK_SUBMITTED`.
 - `Payment.refundedKobo` / `releasedKobo` are caches of ledger-derived values, written in the same transaction as the ledger rows (tested in Phase 3).
 - Masking: phone numbers are hidden from the other party until the job is paid. Pre-payment chat messages containing contact details are masked and flagged for admins.
 - Artisan offers expire after 2 working hours (07:00–20:00 WAT). Offers made outside that window expire at 09:00 the next day.

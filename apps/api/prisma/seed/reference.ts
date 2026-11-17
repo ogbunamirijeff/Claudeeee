@@ -8,7 +8,11 @@ import { AREAS, TRADES } from './data';
 
 export async function seedReference(prisma: PrismaClient) {
   for (const t of TRADES) {
-    await prisma.trade.upsert({ where: { slug: t.slug }, create: t, update: { name: t.name, sortOrder: t.sortOrder } });
+    await prisma.trade.upsert({
+      where: { slug: t.slug },
+      create: t,
+      update: { name: t.name, sortOrder: t.sortOrder },
+    });
   }
   for (const a of AREAS) {
     await prisma.serviceArea.upsert({ where: { slug: a.slug }, create: a, update: a });
@@ -22,9 +26,14 @@ export async function seedReference(prisma: PrismaClient) {
     update: {},
   });
   if (!admin.roles.includes('ADMIN')) {
-    await prisma.user.update({ where: { id: admin.id }, data: { roles: { set: [...admin.roles, 'ADMIN'] } } });
+    await prisma.user.update({
+      where: { id: admin.id },
+      data: { roles: { set: [...admin.roles, 'ADMIN'] } },
+    });
   }
-  console.log(`Reference data seeded: ${TRADES.length} trades, ${AREAS.length} areas, admin ${phone}`);
+  console.log(
+    `Reference data seeded: ${TRADES.length} trades, ${AREAS.length} areas, admin ${phone}`,
+  );
   return admin;
 }
 

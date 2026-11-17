@@ -27,7 +27,10 @@ export const EnvSchema = z
 
     // Field-level encryption (bank account numbers). Previous keys allow rotation:
     // DATA_ENCRYPTION_PREVIOUS_KEYS="k1:<base64>,k0:<base64>"
-    DATA_ENCRYPTION_KEY_ID: z.string().regex(/^[a-z0-9]{1,16}$/).default('k1'),
+    DATA_ENCRYPTION_KEY_ID: z
+      .string()
+      .regex(/^[a-z0-9]{1,16}$/)
+      .default('k1'),
     DATA_ENCRYPTION_KEY: base64Key32,
     DATA_ENCRYPTION_PREVIOUS_KEYS: z.string().default(''),
 
@@ -40,13 +43,28 @@ export const EnvSchema = z
 
     // Business rules
     COMMISSION_BPS: z.coerce.number().int().min(0).max(10_000).default(1500),
+    MATERIALS_ADVANCE_CAP_KOBO: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(2_147_483_647)
+      .default(15_000_000), // ₦150,000
+    MATERIALS_REVIEW_THRESHOLD_BPS: z.coerce.number().int().min(0).max(10_000).default(7000), // 70%
   })
   .superRefine((env, ctx) => {
     if (env.SMS_PROVIDER === 'termii' && !env.TERMII_API_KEY) {
-      ctx.addIssue({ code: 'custom', path: ['TERMII_API_KEY'], message: 'required when SMS_PROVIDER=termii' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['TERMII_API_KEY'],
+        message: 'required when SMS_PROVIDER=termii',
+      });
     }
     if (env.NODE_ENV === 'production' && env.SMS_PROVIDER === 'console') {
-      ctx.addIssue({ code: 'custom', path: ['SMS_PROVIDER'], message: 'console provider is not allowed in production' });
+      ctx.addIssue({
+        code: 'custom',
+        path: ['SMS_PROVIDER'],
+        message: 'console provider is not allowed in production',
+      });
     }
   });
 
