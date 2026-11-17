@@ -44,3 +44,4 @@ ALTER TABLE quotes
   ADD CONSTRAINT quotes_review_decided
     CHECK ("reviewStatus" IN ('NOT_REQUIRED', 'PENDING') OR ("reviewedById" IS NOT NULL AND "reviewedAt" IS NOT NULL));
 
+-- Receipts are job documents, not sensitive identity documents (constraint unchanged, listed for clarity).

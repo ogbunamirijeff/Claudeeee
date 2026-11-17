@@ -86,3 +86,56 @@ export async function login(h: Harness, phone: string) {
 }
 
 export const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+/** Creates (or reuses) a SEALED artisan for a trade/area directly in the DB, then logs in. */
+export async function sealedArtisan(
+  h: Harness,
+  opts: { trade: string; area: string; name: string; sealed?: boolean },
+) {
+  const phone = uniquePhone();
+  const [trade, area] = await Promise.all([
+    h.prisma.trade.findUniqueOrThrow({ where: { slug: opts.trade } }),
+    h.prisma.serviceArea.findUniqueOrThrow({ where: { slug: opts.area } }),
+  ]);
+  const user = await h.prisma.user.create({
+    data: { phone, name: opts.name, roles: ['CLIENT', 'ARTISAN'] },
+  });
+  const profile = await h.prisma.artisanProfile.create({
+    data: {
+      userId: user.id,
+      displayName: opts.name,
+      sealStatus: opts.sealed === false ? 'IN_PROGRESS' : 'SEALED',
+      baseLat: area.lat + 0.01,
+      baseLng: area.lng + 0.01,
+      ratingAvg: 4.7,
+      trades: { create: [{ tradeId: trade.id, isPrimary: true }] },
+      serviceAreas: { create: [{ areaId: area.id }] },
+    },
+  });
+  const session = await login(h, phone);
+  return { ...session, phone, profileId: profile.id };
+}
+
+/** Requests an upload ticket and performs the direct upload against the local storage driver. */
+export async function uploadPhoto(h: Harness, token: string, kind: string, jobId?: string) {
+  const jpeg = Buffer.from(
+    '/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP//////////////////////////////////////////////////////////////////////////////////////wgALCAABAAEBAREA/8QAFBABAAAAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxA=',
+    'base64',
+  );
+  const ticket = await h.http
+    .post('/v1/files/uploads')
+    .set(bearer(token))
+    .send({ kind, mimeType: 'image/jpeg', sizeBytes: jpeg.length, ...(jobId ? { jobId } : {}) })
+    .expect(201);
+  const path = new URL(ticket.body.url as string).pathname;
+  let req = h.http.post(path);
+  for (const [k, v] of Object.entries(ticket.body.fields as Record<string, string>))
+    req = req.field(k, v);
+  await req.attach('file', jpeg, { filename: 'photo.jpg', contentType: 'image/jpeg' }).expect(204);
+  await h.http.post(`/v1/files/${ticket.body.fileId}/complete`).set(bearer(token)).expect(200);
+  return ticket.body.fileId as string;
+}
+
+export function tomorrowLagos(): string {
+  return new Date(Date.now() + 3_600_000 + 86_400_000).toISOString().slice(0, 10);
+}

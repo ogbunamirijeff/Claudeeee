@@ -41,6 +41,23 @@ export const EnvSchema = z
     TERMII_SENDER_ID: z.string().default('Jiko'),
     TERMII_CHANNEL: z.enum(['dnd', 'generic', 'whatsapp']).default('dnd'),
 
+    // File storage. "local" stores files on disk behind HMAC-signed API URLs (dev/test only).
+    PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
+    STORAGE_DRIVER: z.enum(['s3', 'local']).default('local'),
+    LOCAL_STORAGE_DIR: z.string().default('.storage'),
+    S3_ENDPOINT: z.string().url().optional(), // e.g. Cloudflare R2 / MinIO; omit for AWS
+    S3_REGION: z.string().default('auto'),
+    S3_ACCESS_KEY_ID: z.string().optional(),
+    S3_SECRET_ACCESS_KEY: z.string().optional(),
+    S3_FORCE_PATH_STYLE: bool.default('false'),
+    S3_BUCKET_JOBS: z.string().default('jiko-jobs'),
+    S3_BUCKET_PRIVATE: z.string().default('jiko-private'), // ID docs + verification evidence
+    SIGNED_URL_TTL_SECONDS: z.coerce.number().int().min(30).max(3600).default(300),
+
+    // Background jobs (BullMQ). Disable in tests or on web-only instances.
+    JOBS_WORKER_ENABLED: bool.default('true'),
+    OFFER_SWEEP_INTERVAL_MS: z.coerce.number().int().min(1000).default(60_000),
+
     // Business rules
     COMMISSION_BPS: z.coerce.number().int().min(0).max(10_000).default(1500),
     MATERIALS_ADVANCE_CAP_KOBO: z.coerce
@@ -57,6 +74,20 @@ export const EnvSchema = z
         code: 'custom',
         path: ['TERMII_API_KEY'],
         message: 'required when SMS_PROVIDER=termii',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === 'local') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['STORAGE_DRIVER'],
+        message: 'local storage is not allowed in production',
+      });
+    }
+    if (env.STORAGE_DRIVER === 's3' && (!env.S3_ACCESS_KEY_ID || !env.S3_SECRET_ACCESS_KEY)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['S3_ACCESS_KEY_ID'],
+        message: 'S3 credentials are required when STORAGE_DRIVER=s3',
       });
     }
     if (env.NODE_ENV === 'production' && env.SMS_PROVIDER === 'console') {

@@ -193,7 +193,8 @@ enum FileKind {
   AVATAR
   ID_DOCUMENT
   VERIFICATION_EVIDENCE
-  JOB_PHOTO_BEFORE
+  JOB_REQUEST_PHOTO // client's photos of the problem
+  JOB_PHOTO_BEFORE  // artisan, on site, required to start work
   JOB_PHOTO_AFTER
   MATERIALS_RECEIPT // required before WORK_SUBMITTED when the quote has materials
   DISPUTE_EVIDENCE
@@ -480,6 +481,7 @@ model Assignment {
   offeredAt     DateTime         @default(now())
   expiresAt     DateTime?
   respondedAt   DateTime?
+  acceptedAt    DateTime? // kept even if the assignment is later withdrawn (acceptance-rate metric)
   declineReason String?
   // Snapshot of signals at assignment time → training data for weighted matching
   distanceKm    Float?
