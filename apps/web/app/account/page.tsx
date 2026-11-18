@@ -35,7 +35,18 @@ export default async function AccountPage() {
           Open admin dashboard
         </Link>
       )}
-      <p className="mt-8 text-sm text-muted">Booking a job arrives in the next release.</p>
+      <Link
+        href="/book"
+        className="mt-3 block rounded-lg border border-line bg-surface px-4 py-3 text-center font-medium"
+      >
+        Book a job
+      </Link>
+      <Link
+        href="/jobs"
+        className="mt-3 block text-center text-sm text-muted underline underline-offset-4"
+      >
+        My jobs
+      </Link>
     </main>
   );
 }

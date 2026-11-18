@@ -13,6 +13,12 @@
   --surface: 255 255 255;
   --canvas: 250 250 249;
   --danger: 185 28 28;
+  --info: 29 78 216;
+  --info-soft: 219 234 254;
+  --warning: 180 83 9;
+  --warning-soft: 254 243 199;
+  --success: 21 128 61;
+  --success-soft: 220 252 231;
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 

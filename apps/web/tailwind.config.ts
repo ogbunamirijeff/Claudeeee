@@ -18,6 +18,18 @@ export default {
         surface: 'rgb(var(--surface) / <alpha-value>)',
         canvas: 'rgb(var(--canvas) / <alpha-value>)',
         danger: 'rgb(var(--danger) / <alpha-value>)',
+        info: {
+          DEFAULT: 'rgb(var(--info) / <alpha-value>)',
+          soft: 'rgb(var(--info-soft) / <alpha-value>)',
+        },
+        warning: {
+          DEFAULT: 'rgb(var(--warning) / <alpha-value>)',
+          soft: 'rgb(var(--warning-soft) / <alpha-value>)',
+        },
+        success: {
+          DEFAULT: 'rgb(var(--success) / <alpha-value>)',
+          soft: 'rgb(var(--success-soft) / <alpha-value>)',
+        },
       },
       fontFamily: { sans: ['var(--font-sans)'] },
     },

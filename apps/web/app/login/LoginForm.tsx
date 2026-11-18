@@ -75,7 +75,7 @@ export function LoginForm() {
     try {
       await post('/api/auth/verify', { phone, code, acceptTerms: accepted });
       const next = params.get('next');
-      router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/account');
+      router.replace(next && next.startsWith('/') && !next.startsWith('//') ? next : '/jobs');
       router.refresh();
     } catch (err) {
       setError(err instanceof RequestFailed ? err.message : 'Could not verify the code');

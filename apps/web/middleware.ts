@@ -1,14 +1,13 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import type { AuthTokens } from '@jiko/shared';
+import { refreshTokens } from './lib/refresh';
 import {
   ACCESS_COOKIE,
   REFRESH_COOKIE,
-  apiUrl,
   clearSessionCookies,
   setSessionCookies,
 } from './lib/session';
 
-const PROTECTED = ['/account', '/admin'];
+const PROTECTED = ['/account', '/admin', '/book', '/jobs'];
 
 /**
  * Keeps sessions alive: when the short-lived access cookie has expired but a refresh cookie
@@ -31,14 +30,8 @@ export async function middleware(req: NextRequest) {
   };
   if (!refresh) return toLogin();
 
-  const r = await fetch(`${apiUrl()}/v1/auth/refresh`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ refreshToken: refresh }),
-    cache: 'no-store',
-  });
-  if (!r.ok) return toLogin();
-  const tokens = (await r.json()) as AuthTokens;
+  const tokens = await refreshTokens(refresh);
+  if (!tokens) return toLogin();
 
   // Re-run the request with the new cookie so server components see it immediately.
   const headers = new Headers(req.headers);
@@ -51,4 +44,6 @@ export async function middleware(req: NextRequest) {
   return res;
 }
 
-export const config = { matcher: ['/account/:path*', '/admin/:path*'] };
+export const config = {
+  matcher: ['/account/:path*', '/admin/:path*', '/book/:path*', '/jobs/:path*'],
+};
