@@ -11,13 +11,13 @@
   "dependencies": {
     "@jiko/shared": "workspace:*",
     "next": "15.5.29",
-    "react": "19.0.0",
-    "react-dom": "19.0.0"
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
-    "@types/react": "~19.0.10",
-    "@types/react-dom": "~19.0.4",
+    "@types/react": "~19.3.0",
+    "@types/react-dom": "~19.3.0",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.6",
     "tailwindcss": "^3.4.19",

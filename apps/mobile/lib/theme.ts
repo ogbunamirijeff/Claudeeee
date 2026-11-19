@@ -9,4 +9,10 @@ export const colors = {
   surface: '#ffffff',
   canvas: '#fafaf9',
   danger: '#b91c1c',
+  info: '#1d4ed8',
+  infoSoft: '#dbeafe',
+  warning: '#b45309',
+  warningSoft: '#fef3c7',
+  success: '#15803d',
+  successSoft: '#dcfce7',
 };

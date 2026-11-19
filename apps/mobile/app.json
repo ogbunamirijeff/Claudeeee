@@ -6,10 +6,25 @@
     "version": "0.1.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "ios": { "bundleIdentifier": "ng.jiko.app", "supportsTablet": false },
-    "android": { "package": "ng.jiko.app", "softwareKeyboardLayoutMode": "pan" },
-    "plugins": ["expo-router", "expo-secure-store"],
+    "runtimeVersion": { "policy": "appVersion" },
+    "ios": {
+      "bundleIdentifier": "com.jiko.app",
+      "supportsTablet": false,
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
+    },
+    "android": { "package": "com.jiko.app", "softwareKeyboardLayoutMode": "pan" },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Jiko uses your photos so you can show the pro what needs fixing.",
+          "cameraPermission": "Jiko uses the camera so you can photograph the problem or the finished job.",
+          "microphonePermission": false
+        }
+      ]
+    ],
     "experiments": { "typedRoutes": false }
   }
 }

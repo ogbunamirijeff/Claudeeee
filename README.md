@@ -4,14 +4,14 @@ Marketplace connecting **Craft Seal–verified home pros** (plumbers, electricia
 
 Pilot: ~30 pros and ~100 jobs in **Houston, TX** (Houston Heights, Midtown, Katy). Times are Houston time (`America/Chicago`).
 
-| Phase | Scope                                                                         | Status                                                        |
-| ----- | ----------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| 1     | Monorepo, DB schema, phone + OTP auth, roles, audit log                       | ✅ done                                                       |
-| 2     | Job request → admin assignment → quote → approval                             | ✅ done (web + API; mobile screens pending the Expo decision) |
-| 3     | Stripe Connect payment, held funds, materials advance, release/refund, ledger | —                                                             |
-| 4     | Pro onboarding + Craft Seal verification                                      | —                                                             |
-| 5     | Reviews, disputes, notifications (SMS/push)                                   | —                                                             |
-| 6     | Admin metrics, marketing site, deploy                                         | —                                                             |
+| Phase | Scope                                                                         | Status                     |
+| ----- | ----------------------------------------------------------------------------- | -------------------------- |
+| 1     | Monorepo, DB schema, phone + OTP auth, roles, audit log                       | ✅ done                    |
+| 2     | Job request → admin assignment → quote → approval                             | ✅ done (API, web, mobile) |
+| 3     | Stripe Connect payment, held funds, materials advance, release/refund, ledger | —                          |
+| 4     | Pro onboarding + Craft Seal verification                                      | —                          |
+| 5     | Reviews, disputes, notifications (SMS/push)                                   | —                          |
+| 6     | Admin metrics, marketing site, deploy                                         | —                          |
 
 ## Repository layout
 
@@ -54,6 +54,32 @@ pnpm dev                                   # API :4000, web :3000, Expo dev serv
 
 With `SMS_PROVIDER=console` the OTP is printed in the API log, e.g.
 `[dev sms] to +17135550100: Your Jiko code is 482913…`. The seeded admin is `(713) 555-0100`; demo pros are `(713) 555-0101…0130` and clients `(832) 555-0150…0159` — 555-01XX numbers are reserved for fiction and never reach a real phone.
+
+## Mobile app (Expo SDK 58, development builds)
+
+The app targets the current Expo SDK (58: React Native 0.88, React 19.3) and runs as a
+**development build** rather than in Expo Go — Expo Go only supports the newest SDK and can't load
+custom native code, and we need our own build for push notifications and store releases anyway.
+
+One-time setup (needs your Expo account):
+
+```bash
+npm i -g eas-cli && eas login
+cd apps/mobile && eas init                 # links the project; writes extra.eas.projectId to app.json
+pnpm build:dev:android                     # installable APK with the dev client
+pnpm build:dev:ios                         # iPhone build; needs an Apple Developer account ($99/yr)
+```
+
+Day to day: install the dev build once, then `pnpm --filter @jiko/mobile dev` and scan the QR code.
+JavaScript changes reload instantly; only native changes need a new build. Build profiles are in
+`apps/mobile/eas.json` (`development`, `development-simulator`, `preview`, `production`); set the
+real API URLs there before preview/production builds. The bundle id is `com.jiko.app` — change it to
+a domain you own before the first store build.
+
+The Android emulator reaches your machine at `10.0.2.2`; on a physical phone set
+`EXPO_PUBLIC_API_URL` to your LAN IP. `pnpm --filter @jiko/mobile export:web` builds a browser version
+of the same screens, used for automated UI tests (tokens use sessionStorage there; on devices they
+stay in the OS keystore).
 
 ## Commands
 

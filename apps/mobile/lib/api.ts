@@ -2,7 +2,9 @@ import type { ApiErrorBody, AuthTokens } from '@jiko/shared';
 import { clearTokens, loadTokens, saveTokens } from './session';
 
 // Android emulator reaches the host at 10.0.2.2; set EXPO_PUBLIC_API_URL for devices.
-const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:4000';
+const envUrl = process.env.EXPO_PUBLIC_API_URL as string | undefined;
+export const API_BASE: string = envUrl ?? 'http://10.0.2.2:4000';
+const BASE = API_BASE;
 
 export class ApiError extends Error {
   constructor(public readonly body: ApiErrorBody) {
@@ -99,4 +101,15 @@ export async function logout() {
       method: 'POST',
       body: JSON.stringify({ refreshToken: tokens.refreshToken }),
     }).catch(() => undefined);
+}
+
+export const post = <T>(path: string, body?: unknown) =>
+  authed<T>(path, { method: 'POST', body: body === undefined ? undefined : JSON.stringify(body) });
+
+export const errorText = (e: unknown) =>
+  e instanceof ApiError ? e.message : 'Something went wrong. Try again.';
+
+/** Unauthenticated GET (public catalogue data). */
+export async function publicGet<T>(path: string): Promise<T> {
+  return parse<T>(await raw(path));
 }
