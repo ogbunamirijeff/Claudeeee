@@ -1,4 +1,4 @@
-import { formatNgPhone } from '@jiko/shared/phone';
+import { formatPhone } from '@jiko/shared/phone';
 import { Redirect } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -38,7 +38,7 @@ export default function Home() {
       )}
 
       <Text style={s.h1}>{me.name ? `Hello, ${me.name.split(' ')[0]}` : 'Welcome to Jiko'}</Text>
-      <Text style={s.muted}>{formatNgPhone(me.phone)}</Text>
+      <Text style={s.muted}>{formatPhone(me.phone)}</Text>
 
       <View style={s.card}>
         <Text style={s.cardTitle}>{mode === 'artisan' ? 'Artisan mode' : 'Client mode'}</Text>

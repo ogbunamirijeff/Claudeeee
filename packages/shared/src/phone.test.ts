@@ -1,42 +1,39 @@
-import { formatNgPhone, maskPhone, normalizeNgPhone, toTermiiFormat } from './phone';
+import { formatPhone, maskPhone, normalizePhone } from './phone';
 
-describe('normalizeNgPhone', () => {
+describe('normalizePhone', () => {
   it.each([
-    ['08031234512', '+2348031234512'],
-    ['0803 123 4512', '+2348031234512'],
-    ['8031234512', '+2348031234512'],
-    ['2348031234512', '+2348031234512'],
-    ['+234 803-123-4512', '+2348031234512'],
-    ['07061234567', '+2347061234567'],
-    ['09151234567', '+2349151234567'],
-    ['08131234567', '+2348131234567'],
+    ['7135550123', '+17135550123'],
+    ['(713) 555-0123', '+17135550123'],
+    ['713.555.0123', '+17135550123'],
+    ['1 713 555 0123', '+17135550123'],
+    ['+1 (832) 555-0199', '+18325550199'],
+    ['+12815550123', '+12815550123'],
   ])('%s → %s', (input, expected) => {
-    expect(normalizeNgPhone(input)).toBe(expected);
+    expect(normalizePhone(input)).toBe(expected);
   });
 
   it.each([
     '',
-    '0803123451', // too short
-    '080312345123', // too long
-    '06031234512', // not a mobile prefix
-    '08231234512', // 82x is not allocated to mobile
-    '+4478031234512', // foreign
-    '+08031234512', // "+" with a local number
-    '0803abc4512',
-    '01-2345678', // Lagos landline
+    '713555012', // too short
+    '71355501234', // 11 digits, not starting with 1
+    '1135550123', // area code can't start with 1
+    '0135550123', // or 0
+    '7131550123', // exchange can't start with 1
+    '9115550123', // N11 area code
+    '7139110123', // N11 exchange
+    '+447135550123', // UK
+    '+7135550123', // "+" without country code
+    '713abc0123',
   ])('rejects %p', (input) => {
-    expect(normalizeNgPhone(input)).toBeNull();
+    expect(normalizePhone(input)).toBeNull();
   });
 });
 
 describe('formatting', () => {
-  it('masks all but the operator prefix and last two digits', () => {
-    expect(maskPhone('+2348031234512')).toBe('+234 80•• ••• •12');
+  it('masks all but the area code and last two digits', () => {
+    expect(maskPhone('+17135550123')).toBe('+1 (713) •••-••23');
   });
   it('formats for display', () => {
-    expect(formatNgPhone('+2348031234512')).toBe('0803 123 4512');
-  });
-  it('formats for Termii', () => {
-    expect(toTermiiFormat('+2348031234512')).toBe('2348031234512');
+    expect(formatPhone('+17135550123')).toBe('(713) 555-0123');
   });
 });

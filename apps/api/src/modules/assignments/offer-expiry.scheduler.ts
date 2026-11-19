@@ -30,7 +30,8 @@ export class OfferExpiryScheduler implements OnModuleInit, OnApplicationShutdown
   async onModuleInit() {
     if (!this.env.JOBS_WORKER_ENABLED) return;
     const connection = { url: this.env.REDIS_URL, maxRetriesPerRequest: null };
-    this.queue = new Queue(QUEUE, { connection });
+    const prefix = this.env.QUEUE_PREFIX;
+    this.queue = new Queue(QUEUE, { connection, prefix });
     await this.queue.upsertJobScheduler(
       'sweep',
       { every: this.env.OFFER_SWEEP_INTERVAL_MS },
@@ -42,7 +43,7 @@ export class OfferExpiryScheduler implements OnModuleInit, OnApplicationShutdown
         const n = await this.assignments.expireDue(new Date());
         if (n) this.logger.log(`Expired ${n} offer(s)`);
       },
-      { connection, concurrency: 1 },
+      { connection, prefix, concurrency: 1 },
     );
     this.worker.on('failed', (_, err) => this.logger.error(`Offer sweep failed: ${err.message}`));
   }

@@ -12,17 +12,17 @@ export interface QuoteItemView {
   kind: 'LABOUR' | 'MATERIAL';
   description: string;
   quantity: number;
-  unitPriceKobo: number;
-  totalKobo: number;
+  unitPriceCents: number;
+  totalCents: number;
 }
 
 export interface QuoteSplitView {
-  commissionKobo: number;
-  commissionFromMaterialsKobo: number;
-  artisanPayoutKobo: number;
-  materialsAdvanceKobo: number;
-  completionPayoutKobo: number;
-  materialsAdvanceCapKobo: number;
+  commissionCents: number;
+  commissionFromMaterialsCents: number;
+  artisanPayoutCents: number;
+  materialsAdvanceCents: number;
+  completionPayoutCents: number;
+  materialsAdvanceCapCents: number;
 }
 
 export interface QuoteView {
@@ -31,9 +31,9 @@ export interface QuoteView {
   status: 'SUBMITTED' | 'APPROVED' | 'REJECTED' | 'SUPERSEDED';
   reviewStatus: 'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED';
   reviewNote: string | null;
-  labourKobo: number;
-  materialsKobo: number;
-  totalKobo: number;
+  labourCents: number;
+  materialsCents: number;
+  totalCents: number;
   items: QuoteItemView[];
   notes: string | null;
   rejectionReason: string | null;
@@ -44,7 +44,7 @@ export interface QuoteView {
 
 export interface PartyView {
   name: string | null;
-  /** Masked (+234 80•• ••• •12) until the job is paid. */
+  /** Masked (+1 (713) •••-••23) until the job is paid. */
   phone: string;
 }
 
@@ -66,7 +66,9 @@ export interface JobView {
   description: string;
   /** null for an artisan who has not accepted yet. */
   addressLine: string | null;
-  landmark: string | null;
+  postalCode: string;
+  /** null for an artisan who has not accepted yet. */
+  accessNotes: string | null;
   preferredDate: string;
   timeWindow: 'MORNING' | 'AFTERNOON' | 'EVENING';
   createdAt: string;
@@ -99,7 +101,7 @@ export interface CandidateView {
   name: string;
   areaMatch: boolean;
   areas: string[];
-  distanceKm: number | null;
+  distanceMiles: number | null;
   ratingAvg: number;
   ratingCount: number;
   jobsCompleted: number;

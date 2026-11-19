@@ -1,6 +1,7 @@
 import type { ApiErrorBody, AuthTokens } from '@jiko/shared';
 import { clearTokens, loadTokens, saveTokens } from './session';
 
+// Android emulator reaches the host at 10.0.2.2; set EXPO_PUBLIC_API_URL for devices.
 const BASE = process.env.EXPO_PUBLIC_API_URL ?? 'http://10.0.2.2:4000';
 
 export class ApiError extends Error {

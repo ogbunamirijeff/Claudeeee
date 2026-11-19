@@ -13,11 +13,11 @@ if (process.env.NODE_ENV === 'production') {
 
 const CHECK_TYPES: VerificationType[] = [
   'GOVERNMENT_ID',
-  'PHONE_ADDRESS',
-  'REFERENCES',
-  'SKILLS_TEST',
-  'GUARANTOR',
+  'STATE_LICENSE',
+  'INSURANCE',
   'BACKGROUND_CHECK',
+  'REFERENCES',
+  'SKILLS_ASSESSMENT',
 ];
 
 // Deterministic PRNG so every run produces the same demo data.
@@ -25,8 +25,9 @@ let s = 42;
 const rand = () => (s = (s * 1_103_515_245 + 12_345) % 2 ** 31) / 2 ** 31;
 const pick = <T>(xs: readonly T[]): T => xs[Math.floor(rand() * xs.length)]!;
 
-const artisanPhone = (i: number) => `+23480300001${String(i).padStart(2, '0')}`;
-const clientPhone = (i: number) => `+23481200002${String(i).padStart(2, '0')}`;
+// 555-0100…0199 numbers are reserved for fiction: they never reach a real phone.
+const artisanPhone = (i: number) => `+1713555${String(101 + i).padStart(4, '0')}`;
+const clientPhone = (i: number) => `+1832555${String(150 + i).padStart(4, '0')}`;
 
 async function main() {
   const prisma = new PrismaClient();
@@ -41,8 +42,8 @@ async function main() {
     for (let i = 0; i < 30; i++) {
       const name = `${FIRST_NAMES[i % FIRST_NAMES.length]} ${LAST_NAMES[(i * 7) % LAST_NAMES.length]}`;
       const trade = trades[i % trades.length]!;
-      const home = areas[i % areas.length]!;
-      const extraArea = areas[(i + 1) % areas.length]!;
+      const home = areas[Math.floor(i / trades.length) % areas.length]!; // every trade in every area
+      const extraArea = areas[(Math.floor(i / trades.length) + 1) % areas.length]!;
       const sealStatus: SealStatus = i < 20 ? 'SEALED' : i < 26 ? 'IN_PROGRESS' : 'NOT_STARTED';
       const sealed = sealStatus === 'SEALED';
       const jobsCompleted = sealed ? Math.floor(rand() * 40) : 0;
@@ -85,9 +86,9 @@ async function main() {
         const status = sealed
           ? 'PASSED'
           : sealStatus === 'IN_PROGRESS'
-            ? n < 3
+            ? n < 2 // ID and license passed…
               ? 'PASSED'
-              : n === 3 && i % 2
+              : n === 2 && i % 2 // …insurance certificate rejected for some
                 ? 'FAILED'
                 : 'PENDING'
             : 'PENDING';
@@ -100,9 +101,17 @@ async function main() {
             status,
             reviewerId: decided ? admin.id : null,
             reviewedAt: decided ? new Date(Date.now() - (i + 10) * 86_400_000) : null,
+            details:
+              type === 'STATE_LICENSE' && status === 'PASSED'
+                ? {
+                    state: 'TX',
+                    board: trade.slug === 'plumbing' ? 'TSBPE' : 'TDLR',
+                    licenseNumber: `DEMO-${10000 + i}`,
+                  }
+                : undefined,
             notes:
               status === 'FAILED'
-                ? 'Did not complete the practical test within the allotted time.'
+                ? 'Liability insurance certificate expired; asked for a renewed COI.'
                 : null,
           },
           update: {},
@@ -143,7 +152,8 @@ async function main() {
             areaId: bySlug(areas, j.area).id,
             description: j.description,
             addressLine: j.address,
-            landmark: j.landmark,
+            postalCode: j.postalCode,
+            accessNotes: j.accessNotes,
             preferredDate,
             timeWindow: pick(['MORNING', 'AFTERNOON', 'EVENING'] as const),
             statusEvents: { create: { to: 'PENDING_ASSIGNMENT', actorId: client.id } },

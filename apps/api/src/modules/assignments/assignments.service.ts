@@ -1,11 +1,13 @@
-import { HttpStatus, Injectable, Logger } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
 import { offerExpiresAt, type CandidateView } from '@jiko/shared';
+import { ENV } from '../../config/config.module';
+import type { Env } from '../../config/env';
 import { AppException } from '../../common/http/app-exception';
 import type { AuthUser, RequestContext } from '../../common/http/request-context';
 import { PrismaService, type Tx } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { JobTransitionsService } from '../jobs/job-transitions.service';
-import { haversineKm } from './geo';
+import { haversineMiles } from './geo';
 
 const ACTIVE_JOB_STATUSES = [
   'ACCEPTED',
@@ -25,6 +27,7 @@ export class AssignmentsService {
     private readonly prisma: PrismaService,
     private readonly transitions: JobTransitionsService,
     private readonly audit: AuditService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   /**
@@ -78,9 +81,9 @@ export class AssignmentsService {
         name: a.displayName,
         areaMatch: a.serviceAreas.some((s) => s.areaId === job.areaId),
         areas: a.serviceAreas.map((s) => s.area.name),
-        distanceKm:
+        distanceMiles:
           a.baseLat !== null && a.baseLng !== null
-            ? haversineKm(origin, { lat: a.baseLat, lng: a.baseLng })
+            ? haversineMiles(origin, { lat: a.baseLat, lng: a.baseLng })
             : null,
         ratingAvg: a.ratingAvg,
         ratingCount: a.ratingCount,
@@ -92,7 +95,7 @@ export class AssignmentsService {
       .sort(
         (x, y) =>
           Number(y.areaMatch) - Number(x.areaMatch) ||
-          (x.distanceKm ?? 999) - (y.distanceKm ?? 999) ||
+          (x.distanceMiles ?? 999) - (y.distanceMiles ?? 999) ||
           y.ratingAvg - x.ratingAvg,
       );
   }
@@ -114,7 +117,7 @@ export class AssignmentsService {
       );
     }
     const offeredAt = new Date();
-    const expiresAt = offerExpiresAt(offeredAt);
+    const expiresAt = offerExpiresAt(offeredAt, this.env.MARKET_TIMEZONE);
 
     return this.prisma.$transaction(async (tx) => {
       await this.transitions.apply(tx, {
@@ -131,7 +134,7 @@ export class AssignmentsService {
           assignedById: admin.id,
           offeredAt,
           expiresAt,
-          distanceKm: pick.distanceKm,
+          distanceMiles: pick.distanceMiles,
           matchSnapshot: { ...pick, rank: ranked.indexOf(pick) + 1, candidateCount: ranked.length },
         },
       });

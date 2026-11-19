@@ -16,11 +16,11 @@ export type SealStatus = keyof typeof SealStatus;
 
 export const VerificationType = e(
   'GOVERNMENT_ID',
-  'PHONE_ADDRESS',
-  'REFERENCES',
-  'SKILLS_TEST',
-  'GUARANTOR',
+  'STATE_LICENSE',
+  'INSURANCE',
   'BACKGROUND_CHECK',
+  'REFERENCES',
+  'SKILLS_ASSESSMENT',
 );
 export type VerificationType = keyof typeof VerificationType;
 
@@ -85,12 +85,12 @@ export const RefundStatus = e('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED');
 export type RefundStatus = keyof typeof RefundStatus;
 
 export const LedgerAccount = e(
-  'PAYSTACK_INFLOW',
+  'PAYMENT_INFLOW',
   'ESCROW',
   'ARTISAN_PAYABLE',
   'ARTISAN_PAID_OUT',
   'PLATFORM_COMMISSION',
-  'PAYSTACK_FEES',
+  'PROCESSING_FEES',
   'PLATFORM_LOSSES',
   'CLIENT_REFUNDED',
 );

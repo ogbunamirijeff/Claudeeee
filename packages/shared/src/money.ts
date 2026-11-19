@@ -1,39 +1,39 @@
 /**
- * Money is always an integer number of kobo (₦1 = 100 kobo). Never use floats for amounts.
+ * Money is always an integer number of US cents ($1 = 100 cents). Never use floats for amounts.
  * Basis points (bps): 1500 bps = 15%.
  */
-export type Kobo = number;
+export type Cents = number;
 
-export const MAX_KOBO = 2_147_483_647; // Postgres INT upper bound (≈ ₦21.4M)
+export const MAX_CENTS = 2_147_483_647; // Postgres INT upper bound (≈ $21.4M)
 
-export function assertKobo(value: number, label = 'amount'): asserts value is Kobo {
-  if (!Number.isSafeInteger(value) || value < 0 || value > MAX_KOBO) {
-    throw new RangeError(`${label} must be a non-negative integer number of kobo, got ${value}`);
+export function assertCents(value: number, label = 'amount'): asserts value is Cents {
+  if (!Number.isSafeInteger(value) || value < 0 || value > MAX_CENTS) {
+    throw new RangeError(`${label} must be a non-negative integer number of cents, got ${value}`);
   }
 }
 
-/** Parse a naira string like "12,500.50" into kobo without floating-point arithmetic. */
-export function nairaToKobo(naira: string): Kobo {
-  const clean = naira.replace(/[₦,\s]/g, '');
+/** Parse a dollar string like "1,250.50" or "$19.99" into cents without floating-point arithmetic. */
+export function dollarsToCents(dollars: string): Cents {
+  const clean = dollars.replace(/[$,\s]/g, '');
   const m = /^(\d+)(?:\.(\d{1,2}))?$/.exec(clean);
-  if (!m) throw new RangeError(`Invalid naira amount: "${naira}"`);
-  const kobo = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'));
-  assertKobo(kobo);
-  return kobo;
+  if (!m) throw new RangeError(`Invalid dollar amount: "${dollars}"`);
+  const cents = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0'));
+  assertCents(cents);
+  return cents;
 }
 
-/** Format kobo for display: 1250050 → "₦12,500.50"; whole naira drop the decimals. */
-export function formatKobo(kobo: Kobo): string {
-  assertKobo(kobo);
-  const naira = Math.floor(kobo / 100);
-  const k = kobo % 100;
-  const whole = naira.toLocaleString('en-NG');
-  return k === 0 ? `₦${whole}` : `₦${whole}.${String(k).padStart(2, '0')}`;
+/** Format cents for display: 125050 → "$1,250.50"; whole dollars drop the decimals. */
+export function formatCents(cents: Cents): string {
+  assertCents(cents);
+  const dollars = Math.floor(cents / 100);
+  const c = cents % 100;
+  const whole = dollars.toLocaleString('en-US');
+  return c === 0 ? `$${whole}` : `$${whole}.${String(c).padStart(2, '0')}`;
 }
 
 /** amount × bps / 10000, rounded half-up, integer-only. */
-export function applyBps(amount: Kobo, bps: number): Kobo {
-  assertKobo(amount);
+export function applyBps(amount: Cents, bps: number): Cents {
+  assertCents(amount);
   if (!Number.isInteger(bps) || bps < 0 || bps > 10_000) throw new RangeError(`Invalid bps ${bps}`);
   return Math.floor((amount * bps + 5_000) / 10_000);
 }
@@ -42,29 +42,29 @@ export interface QuotePolicy {
   /** Platform commission on the whole quote, in basis points (1500 = 15%). */
   commissionBps: number;
   /** Max materials released when the job starts; the rest is held until completion. */
-  materialsAdvanceCapKobo: Kobo;
+  materialsAdvanceCapCents: Cents;
   /** Quotes whose materials exceed this share of the total need admin approval (7000 = 70%). */
   materialsReviewThresholdBps: number;
 }
 
 export const DEFAULT_QUOTE_POLICY: QuotePolicy = {
   commissionBps: 1500,
-  materialsAdvanceCapKobo: 15_000_000, // ₦150,000
+  materialsAdvanceCapCents: 50_000, // $500
   materialsReviewThresholdBps: 7000,
 };
 
 export interface QuoteSplit {
-  totalKobo: Kobo;
-  commissionKobo: Kobo;
+  totalCents: Cents;
+  commissionCents: Cents;
   /** Commission taken from labour (always first). */
-  commissionFromLabourKobo: Kobo;
+  commissionFromLabourCents: Cents;
   /** Only when labour can't cover the commission: the shortfall, taken from materials. */
-  commissionFromMaterialsKobo: Kobo;
-  artisanPayoutKobo: Kobo;
+  commissionFromMaterialsCents: Cents;
+  artisanPayoutCents: Cents;
   /** Released when the artisan starts on site: materials net of any shortfall, capped. */
-  materialsAdvanceKobo: Kobo;
+  materialsAdvanceCents: Cents;
   /** Released on completion: labour net of commission + materials above the cap. */
-  completionPayoutKobo: Kobo;
+  completionPayoutCents: Cents;
   /** True when materials exceed the review threshold → admin must approve before payment. */
   requiresAdminReview: boolean;
 }
@@ -77,33 +77,33 @@ export interface QuoteSplit {
  * Invariant: materialsAdvance + completionPayout + commission === total.
  */
 export function splitQuote(
-  labourKobo: Kobo,
-  materialsKobo: Kobo,
+  labourCents: Cents,
+  materialsCents: Cents,
   policy: QuotePolicy = DEFAULT_QUOTE_POLICY,
 ): QuoteSplit {
-  assertKobo(labourKobo, 'labourKobo');
-  assertKobo(materialsKobo, 'materialsKobo');
-  assertKobo(policy.materialsAdvanceCapKobo, 'materialsAdvanceCapKobo');
-  const totalKobo = labourKobo + materialsKobo;
-  assertKobo(totalKobo, 'totalKobo');
+  assertCents(labourCents, 'labourCents');
+  assertCents(materialsCents, 'materialsCents');
+  assertCents(policy.materialsAdvanceCapCents, 'materialsAdvanceCapCents');
+  const totalCents = labourCents + materialsCents;
+  assertCents(totalCents, 'totalCents');
 
-  const commissionKobo = applyBps(totalKobo, policy.commissionBps);
-  const commissionFromLabourKobo = Math.min(commissionKobo, labourKobo);
-  const commissionFromMaterialsKobo = commissionKobo - commissionFromLabourKobo;
-  const materialsNet = materialsKobo - commissionFromMaterialsKobo;
-  const materialsAdvanceKobo = Math.min(materialsNet, policy.materialsAdvanceCapKobo);
-  const completionPayoutKobo =
-    labourKobo - commissionFromLabourKobo + (materialsNet - materialsAdvanceKobo);
+  const commissionCents = applyBps(totalCents, policy.commissionBps);
+  const commissionFromLabourCents = Math.min(commissionCents, labourCents);
+  const commissionFromMaterialsCents = commissionCents - commissionFromLabourCents;
+  const materialsNet = materialsCents - commissionFromMaterialsCents;
+  const materialsAdvanceCents = Math.min(materialsNet, policy.materialsAdvanceCapCents);
+  const completionPayoutCents =
+    labourCents - commissionFromLabourCents + (materialsNet - materialsAdvanceCents);
 
   return {
-    totalKobo,
-    commissionKobo,
-    commissionFromLabourKobo,
-    commissionFromMaterialsKobo,
-    artisanPayoutKobo: totalKobo - commissionKobo,
-    materialsAdvanceKobo,
-    completionPayoutKobo,
+    totalCents,
+    commissionCents,
+    commissionFromLabourCents,
+    commissionFromMaterialsCents,
+    artisanPayoutCents: totalCents - commissionCents,
+    materialsAdvanceCents,
+    completionPayoutCents,
     requiresAdminReview:
-      totalKobo > 0 && materialsKobo * 10_000 > totalKobo * policy.materialsReviewThresholdBps,
+      totalCents > 0 && materialsCents * 10_000 > totalCents * policy.materialsReviewThresholdBps,
   };
 }

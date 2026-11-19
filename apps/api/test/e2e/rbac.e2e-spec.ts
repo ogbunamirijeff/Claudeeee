@@ -7,7 +7,7 @@ import { AppModule } from '../../src/app.module';
 import { configureApp } from '../../src/bootstrap';
 import { bearer, createHarness, Harness, login, uniquePhone } from './harness';
 
-const ADMIN_PHONE = '+2348000000001'; // created by the reference seed
+const ADMIN_PHONE = '+17135550100'; // created by the reference seed
 
 describe('Role-based access control', () => {
   let h: Harness;
@@ -46,13 +46,13 @@ describe('Role-based access control', () => {
     expect(trades.body.map((t: { slug: string }) => t.slug)).toEqual([
       'plumbing',
       'electrical',
-      'ac-repair',
+      'hvac',
     ]);
     const areas = await h.http.get('/v1/catalog/areas').expect(200);
     expect(areas.body.map((a: { slug: string }) => a.slug).sort()).toEqual([
-      'ajah',
-      'lekki',
-      'yaba',
+      'heights',
+      'katy',
+      'midtown',
     ]);
     await h.http.get('/health').expect(200, { status: 'ok' });
   });

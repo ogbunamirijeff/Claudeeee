@@ -1,7 +1,7 @@
 'use client';
 
 import type { JobView } from '@jiko/shared';
-import { formatKobo } from '@jiko/shared/money';
+import { formatCents } from '@jiko/shared/money';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Chat } from '@/components/Chat';
@@ -103,7 +103,7 @@ export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boo
                 disabled={busy}
                 onClick={() => void act(`/quotes/${q.id}/approve`)}
               >
-                Approve quote · {formatKobo(q.totalKobo)}
+                Approve quote · {formatCents(q.totalCents)}
               </button>
               {!rejecting ? (
                 <button
@@ -146,7 +146,8 @@ export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boo
         {job.addressLine && (
           <p className="text-muted">
             {job.addressLine}
-            {job.landmark ? ` · ${job.landmark}` : ''}
+            {`, ${job.postalCode}`}
+            {job.accessNotes ? ` · ${job.accessNotes}` : ''}
           </p>
         )}
         {job.photos.length > 0 && (
@@ -174,8 +175,8 @@ export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boo
         <ol className="mt-2 space-y-1">
           {job.timeline.map((t, i) => (
             <li key={i} className="text-muted">
-              {new Date(t.at).toLocaleString('en-NG', {
-                timeZone: 'Africa/Lagos',
+              {new Date(t.at).toLocaleString('en-US', {
+                timeZone: 'America/Chicago',
                 dateStyle: 'medium',
                 timeStyle: 'short',
               })}{' '}

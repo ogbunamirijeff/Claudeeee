@@ -12,7 +12,7 @@ process.env.DATA_ENCRYPTION_KEY =
   process.env.DATA_ENCRYPTION_KEY_TEST ?? randomBytes(32).toString('base64');
 process.env.SMS_PROVIDER = 'console';
 process.env.OTP_MAX_PER_IP_PER_HOUR = '100000'; // all tests share 127.0.0.1; IP limit has its own test
-process.env.SEED_ADMIN_PHONE = '+2348000000001';
+process.env.SEED_ADMIN_PHONE = '+17135550100';
 process.env.STORAGE_DRIVER = 'local';
 process.env.LOCAL_STORAGE_DIR = join(tmpdir(), 'jiko-e2e-storage');
 process.env.JOBS_WORKER_ENABLED = 'false';

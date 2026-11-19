@@ -1,29 +1,45 @@
+import { Queue } from 'bullmq';
 import {
   bearer,
   createHarness,
   type Harness,
   login,
   sealedArtisan,
-  tomorrowLagos,
+  tomorrowLocal,
   uniquePhone,
 } from './harness';
 
 /** Runs the real BullMQ job scheduler against Redis (REDIS_URL, default localhost:6379). */
+const prefix = `jiko-test-${Date.now()}`;
+
 describe('Offer expiry scheduler (BullMQ)', () => {
   let h: Harness;
   beforeAll(
     async () =>
-      (h = await createHarness({ JOBS_WORKER_ENABLED: 'true', OFFER_SWEEP_INTERVAL_MS: '1000' })),
+      (h = await createHarness({
+        JOBS_WORKER_ENABLED: 'true',
+        OFFER_SWEEP_INTERVAL_MS: '1000',
+        // Fresh queue namespace per run: no scheduler state left over from earlier runs.
+        QUEUE_PREFIX: prefix,
+      })),
   );
-  afterAll(() => h.close());
+  afterAll(async () => {
+    await h.close();
+    const q = new Queue('offer-expiry', {
+      connection: { url: process.env.REDIS_URL ?? 'redis://localhost:6379' },
+      prefix,
+    });
+    await q.obliterate({ force: true });
+    await q.close();
+  });
 
   it('expires an overdue offer without any manual call', async () => {
-    const admin = await login(h, '+2348000000001');
+    const admin = await login(h, '+17135550100');
     const client = await login(h, uniquePhone());
-    const art = await sealedArtisan(h, { trade: 'plumbing', area: 'lekki', name: 'Sweeper Test' });
+    const art = await sealedArtisan(h, { trade: 'plumbing', area: 'katy', name: 'Sweeper Test' });
     const [trade, area] = await Promise.all([
       h.prisma.trade.findUniqueOrThrow({ where: { slug: 'plumbing' } }),
-      h.prisma.serviceArea.findUniqueOrThrow({ where: { slug: 'lekki' } }),
+      h.prisma.serviceArea.findUniqueOrThrow({ where: { slug: 'katy' } }),
     ]);
     const job = await h.http
       .post('/v1/jobs')
@@ -32,8 +48,9 @@ describe('Offer expiry scheduler (BullMQ)', () => {
         tradeId: trade.id,
         areaId: area.id,
         description: 'Kitchen sink leaking under the cabinet',
-        addressLine: '14 Admiralty Way, Lekki',
-        preferredDate: tomorrowLagos(),
+        addressLine: '21500 Kingsland Blvd, Katy, TX',
+        postalCode: '77450',
+        preferredDate: tomorrowLocal(),
         timeWindow: 'AFTERNOON',
       })
       .expect(201);

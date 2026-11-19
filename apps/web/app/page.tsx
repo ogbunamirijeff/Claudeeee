@@ -7,11 +7,11 @@ export default function Home() {
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center gap-6 px-6">
       <Logo className="text-3xl" />
       <h1 className="text-2xl font-semibold leading-tight">
-        Vetted artisans for your home in Lagos.
+        Licensed, vetted home pros in Houston.
       </h1>
       <p className="text-muted">
-        Plumbers, electricians and AC technicians with the Craft Seal. Clear quotes. Your money is
-        held until the job is done.
+        Plumbers, electricians and HVAC techs with the Craft Seal: licensed, insured and
+        background-checked. Clear quotes. Your money is held until the job is done.
       </p>
       <Link
         href="/login"

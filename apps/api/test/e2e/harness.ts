@@ -1,3 +1,4 @@
+import { marketDateString } from '@jiko/shared';
 import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
@@ -57,13 +58,19 @@ export async function createHarness(
   };
 }
 
-const base = String(Math.floor(Math.random() * 1_000_000)).padStart(6, '0');
+// Random exchange (2xx–9xx, never x11) per test file + a counter: valid, unique US numbers.
+const exchange = (() => {
+  for (;;) {
+    const x = 200 + Math.floor(Math.random() * 800);
+    if (x % 100 !== 11) return String(x);
+  }
+})();
 let counter = 0;
-/** Unique valid Nigerian mobile per call, so tests don't collide on rate limits. */
+/** Unique valid US number per call, so tests don't collide on rate limits. */
 export function uniquePhone(): string {
   counter += 1;
-  if (counter > 99) throw new Error('uniquePhone exhausted for this file');
-  return `+23490${base}${String(counter).padStart(2, '0')}`;
+  if (counter > 9999) throw new Error('uniquePhone exhausted for this file');
+  return `+1346${exchange}${String(counter).padStart(4, '0')}`;
 }
 
 export async function login(h: Harness, phone: string) {
@@ -136,6 +143,7 @@ export async function uploadPhoto(h: Harness, token: string, kind: string, jobId
   return ticket.body.fileId as string;
 }
 
-export function tomorrowLagos(): string {
-  return new Date(Date.now() + 3_600_000 + 86_400_000).toISOString().slice(0, 10);
+/** Tomorrow's date in the market time zone (Houston), as the booking form sends it. */
+export function tomorrowLocal(): string {
+  return marketDateString(new Date(Date.now() + 86_400_000));
 }

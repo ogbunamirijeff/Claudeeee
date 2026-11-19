@@ -2,8 +2,8 @@ import { Global, Module } from '@nestjs/common';
 import { ENV } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { ConsoleSmsProvider } from './console.provider';
-import { SMS_PROVIDER, SmsProvider } from './sms.provider';
-import { TermiiSmsProvider } from './termii.provider';
+import { SMS_PROVIDER, type SmsProvider } from './sms.provider';
+import { TwilioSmsProvider } from './twilio.provider';
 
 @Global()
 @Module({
@@ -12,12 +12,12 @@ import { TermiiSmsProvider } from './termii.provider';
       provide: SMS_PROVIDER,
       inject: [ENV],
       useFactory: (env: Env): SmsProvider =>
-        env.SMS_PROVIDER === 'termii'
-          ? new TermiiSmsProvider({
-              baseUrl: env.TERMII_BASE_URL,
-              apiKey: env.TERMII_API_KEY!,
-              senderId: env.TERMII_SENDER_ID,
-              channel: env.TERMII_CHANNEL,
+        env.SMS_PROVIDER === 'twilio'
+          ? new TwilioSmsProvider({
+              accountSid: env.TWILIO_ACCOUNT_SID!,
+              authToken: env.TWILIO_AUTH_TOKEN!,
+              messagingServiceSid: env.TWILIO_MESSAGING_SERVICE_SID,
+              fromNumber: env.TWILIO_FROM_NUMBER,
             })
           : new ConsoleSmsProvider(),
     },

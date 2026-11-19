@@ -1,5 +1,5 @@
 import { HttpStatus, Inject, Injectable } from '@nestjs/common';
-import { MAX_KOBO, splitQuote, type SubmitQuoteInput } from '@jiko/shared';
+import { MAX_CENTS, splitQuote, type SubmitQuoteInput } from '@jiko/shared';
 import { ENV } from '../../config/config.module';
 import type { Env } from '../../config/env';
 import { AppException } from '../../common/http/app-exception';
@@ -24,28 +24,28 @@ export class QuotesService {
     if (!assignment) throw new AppException(HttpStatus.NOT_FOUND, 'JOB_NOT_FOUND', 'Job not found');
 
     const items = input.items.map((i, n) => {
-      const totalKobo = i.quantity * i.unitPriceKobo;
-      if (totalKobo > MAX_KOBO)
+      const totalCents = i.quantity * i.unitPriceCents;
+      if (totalCents > MAX_CENTS)
         throw new AppException(
           HttpStatus.BAD_REQUEST,
           'AMOUNT_TOO_LARGE',
           'An item total is too large',
         );
-      return { ...i, totalKobo, sortOrder: n };
+      return { ...i, totalCents, sortOrder: n };
     });
-    const labourKobo = items
+    const labourCents = items
       .filter((i) => i.kind === 'LABOUR')
-      .reduce((s, i) => s + i.totalKobo, 0);
-    const materialsKobo = items
+      .reduce((s, i) => s + i.totalCents, 0);
+    const materialsCents = items
       .filter((i) => i.kind === 'MATERIAL')
-      .reduce((s, i) => s + i.totalKobo, 0);
-    if (labourKobo + materialsKobo === 0)
+      .reduce((s, i) => s + i.totalCents, 0);
+    if (labourCents + materialsCents === 0)
       throw new AppException(
         HttpStatus.BAD_REQUEST,
         'QUOTE_EMPTY',
         'The quote total cannot be zero',
       );
-    if (labourKobo + materialsKobo > MAX_KOBO)
+    if (labourCents + materialsCents > MAX_CENTS)
       throw new AppException(
         HttpStatus.BAD_REQUEST,
         'AMOUNT_TOO_LARGE',
@@ -54,10 +54,10 @@ export class QuotesService {
 
     const policy = {
       commissionBps: this.env.COMMISSION_BPS,
-      materialsAdvanceCapKobo: this.env.MATERIALS_ADVANCE_CAP_KOBO,
+      materialsAdvanceCapCents: this.env.MATERIALS_ADVANCE_CAP_CENTS,
       materialsReviewThresholdBps: this.env.MATERIALS_REVIEW_THRESHOLD_BPS,
     };
-    const split = splitQuote(labourKobo, materialsKobo, policy);
+    const split = splitQuote(labourCents, materialsCents, policy);
 
     return this.prisma.$transaction(async (tx) => {
       await this.transitions.apply(tx, {
@@ -82,16 +82,16 @@ export class QuotesService {
           assignmentId: assignment.id,
           artisanId: assignment.artisanId,
           version: (last?.version ?? 0) + 1,
-          labourKobo,
-          materialsKobo,
-          totalKobo: split.totalKobo,
+          labourCents,
+          materialsCents,
+          totalCents: split.totalCents,
           commissionBps: policy.commissionBps,
-          commissionKobo: split.commissionKobo,
-          commissionFromMaterialsKobo: split.commissionFromMaterialsKobo,
-          artisanPayoutKobo: split.artisanPayoutKobo,
-          materialsAdvanceCapKobo: policy.materialsAdvanceCapKobo,
-          materialsAdvanceKobo: split.materialsAdvanceKobo,
-          completionPayoutKobo: split.completionPayoutKobo,
+          commissionCents: split.commissionCents,
+          commissionFromMaterialsCents: split.commissionFromMaterialsCents,
+          artisanPayoutCents: split.artisanPayoutCents,
+          materialsAdvanceCapCents: policy.materialsAdvanceCapCents,
+          materialsAdvanceCents: split.materialsAdvanceCents,
+          completionPayoutCents: split.completionPayoutCents,
           reviewStatus: split.requiresAdminReview ? 'PENDING' : 'NOT_REQUIRED',
           notes: input.notes ?? null,
           items: { create: items },
@@ -100,7 +100,7 @@ export class QuotesService {
       return {
         quoteId: quote.id,
         version: quote.version,
-        totalKobo: quote.totalKobo,
+        totalCents: quote.totalCents,
         reviewStatus: quote.reviewStatus,
       };
     });
@@ -231,7 +231,7 @@ export class QuotesService {
           entityType: 'Quote',
           entityId: q.id,
           before: { reviewStatus: 'PENDING' },
-          after: { decision, note, totalKobo: q.totalKobo, materialsKobo: q.materialsKobo },
+          after: { decision, note, totalCents: q.totalCents, materialsCents: q.materialsCents },
           ctx,
         },
         tx,

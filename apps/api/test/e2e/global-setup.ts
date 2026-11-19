@@ -12,7 +12,7 @@ export default function globalSetup() {
     DATABASE_URL:
       process.env.TEST_DATABASE_URL ??
       'postgresql://jiko:jiko@localhost:5432/jiko_test?schema=public',
-    SEED_ADMIN_PHONE: '+2348000000001',
+    SEED_ADMIN_PHONE: '+17135550100',
   };
   const cwd = join(__dirname, '..', '..');
   execSync('npx prisma migrate deploy', { cwd, env, stdio: 'pipe' });

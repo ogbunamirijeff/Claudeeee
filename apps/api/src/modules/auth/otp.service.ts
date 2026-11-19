@@ -9,7 +9,7 @@ import { SMS_PROVIDER, SmsProvider } from '../sms/sms.provider';
 const HOUR_MS = 3_600_000;
 
 /**
- * Our own OTP (not Termii's token API) so codes, expiry, attempts and rate limits stay in our
+ * Our own OTP (not Twilio Verify) so codes, expiry, attempts and rate limits stay in our
  * control. Codes are never stored: only HMAC-SHA256(pepper, phone:code).
  */
 @Injectable()

@@ -35,7 +35,7 @@ const code = (p: Promise<unknown>) =>
   );
 
 describe('AccessGuard', () => {
-  const client = { id: 'u1', phone: '+2348031234512', roles: ['CLIENT'], status: 'ACTIVE' };
+  const client = { id: 'u1', phone: '+17135550123', roles: ['CLIENT'], status: 'ACTIVE' };
 
   it('denies routes that declare no access rule (fail closed)', async () => {
     const { run, token } = setup(undefined, client);

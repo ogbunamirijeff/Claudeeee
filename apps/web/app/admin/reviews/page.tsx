@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { formatKobo } from '@jiko/shared/money';
+import { formatCents } from '@jiko/shared/money';
 import { Card } from '@/components/ui';
 import { apiGet } from '@/lib/api';
 import { ReviewActions } from './ReviewActions';
@@ -11,12 +11,12 @@ export const dynamic = 'force-dynamic';
 interface PendingQuote {
   id: string;
   version: number;
-  totalKobo: number;
-  labourKobo: number;
-  materialsKobo: number;
+  totalCents: number;
+  labourCents: number;
+  materialsCents: number;
   submittedAt: string;
   status: string;
-  items: { kind: string; description: string; quantity: number; totalKobo: number }[];
+  items: { kind: string; description: string; quantity: number; totalCents: number }[];
   job: { id: string; ref: string; trade: { name: string } };
   artisan: { displayName: string };
 }
@@ -53,16 +53,16 @@ export default async function ReviewsPage() {
             {q.items.map((i, n) => (
               <li key={n} className="flex justify-between gap-3">
                 <span className="text-muted">
-                  {i.kind === 'LABOUR' ? 'Labour' : 'Materials'} · {i.description}
+                  {i.kind === 'LABOUR' ? 'Labor' : 'Materials'} · {i.description}
                   {i.quantity > 1 ? ` × ${i.quantity}` : ''}
                 </span>
-                <span className="tabular-nums">{formatKobo(i.totalKobo)}</span>
+                <span className="tabular-nums">{formatCents(i.totalCents)}</span>
               </li>
             ))}
           </ul>
           <p className="text-sm font-semibold">
-            Total {formatKobo(q.totalKobo)} · materials{' '}
-            {Math.round((q.materialsKobo / q.totalKobo) * 100)}%
+            Total {formatCents(q.totalCents)} · materials{' '}
+            {Math.round((q.materialsCents / q.totalCents) * 100)}%
           </p>
           <ReviewActions quoteId={q.id} />
         </Card>

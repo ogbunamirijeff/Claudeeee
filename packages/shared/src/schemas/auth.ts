@@ -1,15 +1,15 @@
 import { z } from 'zod';
-import { normalizeNgPhone } from '../phone';
+import { normalizePhone } from '../phone';
 
-export const ngPhone = z
+export const usPhone = z
   .string()
   .trim()
   .transform((v, ctx) => {
-    const n = normalizeNgPhone(v);
+    const n = normalizePhone(v);
     if (!n) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: 'Enter a valid Nigerian mobile number',
+        message: 'Enter a valid US mobile number',
       });
       return z.NEVER;
     }
@@ -21,13 +21,13 @@ export const otpCode = z
   .trim()
   .regex(/^\d{6}$/, 'Enter the 6-digit code');
 
-export const RequestOtpSchema = z.object({ phone: ngPhone });
+export const RequestOtpSchema = z.object({ phone: usPhone });
 export type RequestOtpInput = z.input<typeof RequestOtpSchema>;
 
 export const VerifyOtpSchema = z.object({
-  phone: ngPhone,
+  phone: usPhone,
   code: otpCode,
-  /** Required the first time a phone number signs up (NDPA consent). */
+  /** Required at sign-up and whenever the Terms change (Terms, Privacy Policy and TCPA text consent). */
   acceptTerms: z.boolean().optional(),
   deviceInfo: z.string().max(200).optional(),
 });

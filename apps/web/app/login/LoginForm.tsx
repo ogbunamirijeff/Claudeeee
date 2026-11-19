@@ -1,7 +1,7 @@
 'use client';
 
 import type { ApiErrorBody } from '@jiko/shared';
-import { formatNgPhone, normalizeNgPhone } from '@jiko/shared/phone';
+import { formatPhone, normalizePhone } from '@jiko/shared/phone';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 
@@ -50,8 +50,8 @@ export function LoginForm() {
   async function sendCode(e?: FormEvent) {
     e?.preventDefault();
     setError(null);
-    const normalized = normalizeNgPhone(phoneInput);
-    if (!normalized) return setError('Enter a valid Nigerian mobile number, e.g. 0803 123 4567');
+    const normalized = normalizePhone(phoneInput);
+    if (!normalized) return setError('Enter a valid US mobile number, e.g. (713) 555-0123');
     if (!accepted) return setError('Please accept the Terms and Privacy Policy to continue');
     setBusy(true);
     try {
@@ -96,7 +96,7 @@ export function LoginForm() {
             className={input}
             inputMode="tel"
             autoComplete="tel"
-            placeholder="0803 123 4567"
+            placeholder="(713) 555-0123"
             value={phoneInput}
             onChange={(e) => setPhoneInput(e.target.value)}
           />
@@ -117,7 +117,8 @@ export function LoginForm() {
             <a className="underline" href="/privacy">
               Privacy Policy
             </a>
-            , including how my data is used to match me with artisans.
+            , and to receive account and job texts from Jiko at this number. Msg &amp; data rates
+            may apply. Reply STOP to opt out.
           </span>
         </label>
         {error && (
@@ -136,7 +137,7 @@ export function LoginForm() {
     <form onSubmit={verify} className="space-y-5" noValidate>
       <div>
         <h1 className="text-2xl font-semibold">Enter your code</h1>
-        <p className="mt-1 text-muted">Sent to {formatNgPhone(phone)}.</p>
+        <p className="mt-1 text-muted">Sent to {formatPhone(phone)}.</p>
       </div>
       <input
         className={`${input} text-center tracking-[0.5em]`}

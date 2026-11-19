@@ -5,7 +5,7 @@ export type JobActor = 'CLIENT' | 'ARTISAN' | 'ADMIN' | 'SYSTEM';
 /** Facts some transitions depend on. Only the fields a transition's guard reads are required. */
 export interface JobContext {
   quoteReviewStatus?: QuoteReviewStatus;
-  quoteMaterialsKobo?: number;
+  quoteMaterialsCents?: number;
   hasBeforePhoto?: boolean;
   hasAfterPhoto?: boolean;
   hasMaterialsReceipt?: boolean;
@@ -66,7 +66,7 @@ export const JOB_TRANSITIONS = {
     actors: ['ARTISAN'],
     guard: (c) => {
       if (!c.hasAfterPhoto) return 'Upload at least one after-photo';
-      if ((c.quoteMaterialsKobo ?? 0) > 0 && !c.hasMaterialsReceipt) {
+      if ((c.quoteMaterialsCents ?? 0) > 0 && !c.hasMaterialsReceipt) {
         return 'Upload a photo of your materials receipt';
       }
       return null;

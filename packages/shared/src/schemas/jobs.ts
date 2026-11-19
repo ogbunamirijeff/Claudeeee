@@ -1,19 +1,28 @@
 import { z } from 'zod';
-import { MAX_KOBO } from '../money';
+import { MAX_CENTS } from '../money';
 
 const id = z.string().min(1).max(40);
 const reason = z.string().trim().min(3, 'Please give a short reason').max(300);
 
-// Rough bounding box for Lagos State; coordinates outside are rejected.
-const lat = z.number().min(6.35).max(6.75);
-const lng = z.number().min(2.7).max(4.4);
+// Rough bounding box for the Houston metro (pilot market); coordinates outside are rejected.
+const lat = z.number().min(29.3).max(30.3);
+const lng = z.number().min(-96.1).max(-94.7);
+
+/** Houston-area ZIP codes (770xx–775xx). Widen when Jiko launches in a new metro. */
+export const SERVICE_ZIP_PATTERN = /^77[0-5]\d{2}$/;
 
 export const CreateJobSchema = z.object({
   tradeId: id,
   areaId: id,
   description: z.string().trim().min(10, 'Describe the problem in a few words').max(1000),
   addressLine: z.string().trim().min(5).max(200),
-  landmark: z.string().trim().max(120).optional(),
+  postalCode: z
+    .string()
+    .trim()
+    .regex(/^\d{5}$/, 'Enter a 5-digit ZIP code')
+    .regex(SERVICE_ZIP_PATTERN, 'Jiko serves the Houston area for now'),
+  /** Gate code, parking, pets — shown to the artisan only after they accept. */
+  accessNotes: z.string().trim().max(200).optional(),
   lat: lat.optional(),
   lng: lng.optional(),
   preferredDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD'),
@@ -35,7 +44,7 @@ export const QuoteItemSchema = z.object({
   kind: z.enum(['LABOUR', 'MATERIAL']),
   description: z.string().trim().min(2).max(120),
   quantity: z.number().int().min(1).max(1000),
-  unitPriceKobo: z.number().int().min(0).max(MAX_KOBO),
+  unitPriceCents: z.number().int().min(0).max(MAX_CENTS),
 });
 export const SubmitQuoteSchema = z.object({
   items: z.array(QuoteItemSchema).min(1, 'Add at least one item').max(30),

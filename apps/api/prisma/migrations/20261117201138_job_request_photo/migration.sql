@@ -1,2 +1,0 @@
--- AlterEnum
-ALTER TYPE "FileKind" ADD VALUE 'JOB_REQUEST_PHOTO';

@@ -8,7 +8,7 @@ describe('Auth: phone + OTP', () => {
 
   it('signs up a new client end to end', async () => {
     const phone = uniquePhone();
-    const local = `0${phone.slice(4)}`; // users type "0803…"
+    const local = `(${phone.slice(2, 5)}) ${phone.slice(5, 8)}-${phone.slice(8)}`; // users type "(713) 555-0123"
 
     const req = await h.http.post('/v1/auth/otp/request').send({ phone: local }).expect(200);
     expect(req.body.resendAfterSeconds).toBe(60);
@@ -19,7 +19,7 @@ describe('Auth: phone + OTP', () => {
     const challenge = await h.prisma.otpChallenge.findFirstOrThrow({ where: { phone } });
     expect(challenge.codeHash).not.toContain(code);
 
-    // First sign-up requires NDPA consent; missing it doesn't burn an attempt.
+    // First sign-up requires consent (Terms, Privacy, TCPA texts); missing it doesn't burn an attempt.
     const noConsent = await h.http
       .post('/v1/auth/otp/verify')
       .send({ phone: local, code })
@@ -206,7 +206,7 @@ describe('Auth: phone + OTP', () => {
 
   it('updates the profile', async () => {
     const { accessToken } = await login(h, uniquePhone());
-    const area = await h.prisma.serviceArea.findFirstOrThrow({ where: { slug: 'yaba' } });
+    const area = await h.prisma.serviceArea.findFirstOrThrow({ where: { slug: 'heights' } });
     const res = await h.http
       .patch('/v1/me')
       .set(bearer(accessToken))

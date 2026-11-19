@@ -6,7 +6,7 @@ import {
   type Harness,
   login,
   sealedArtisan,
-  tomorrowLagos,
+  tomorrowLocal,
   uniquePhone,
   uploadPhoto,
 } from './harness';
@@ -17,18 +17,18 @@ describe('Phase 2: request → assignment → quote → approval', () => {
   let h: Harness;
   let admin: Session;
   let client: Session;
-  let ids: { electrical: string; yaba: string; lekki: string };
+  let ids: { electrical: string; heights: string; katy: string };
 
   beforeAll(async () => {
     h = await createHarness();
-    admin = await login(h, '+2348000000001');
+    admin = await login(h, '+17135550100');
     client = await login(h, uniquePhone());
-    const [electrical, yaba, lekki] = await Promise.all([
+    const [electrical, heights, katy] = await Promise.all([
       h.prisma.trade.findUniqueOrThrow({ where: { slug: 'electrical' } }),
-      h.prisma.serviceArea.findUniqueOrThrow({ where: { slug: 'yaba' } }),
-      h.prisma.serviceArea.findUniqueOrThrow({ where: { slug: 'lekki' } }),
+      h.prisma.serviceArea.findUniqueOrThrow({ where: { slug: 'heights' } }),
+      h.prisma.serviceArea.findUniqueOrThrow({ where: { slug: 'katy' } }),
     ]);
-    ids = { electrical: electrical.id, yaba: yaba.id, lekki: lekki.id };
+    ids = { electrical: electrical.id, heights: heights.id, katy: katy.id };
   });
   afterAll(() => h.close());
 
@@ -38,11 +38,12 @@ describe('Phase 2: request → assignment → quote → approval', () => {
       .set(bearer(token))
       .send({
         tradeId: ids.electrical,
-        areaId: ids.yaba,
-        description: 'Sockets in two bedrooms stopped working after a power surge.',
-        addressLine: '7 Herbert Macaulay Way, Yaba',
-        landmark: 'Near Yaba bus stop',
-        preferredDate: tomorrowLagos(),
+        areaId: ids.heights,
+        description: 'Outlets in two bedrooms stopped working after a storm.',
+        addressLine: '1234 Yale St, Houston, TX',
+        postalCode: '77008',
+        accessNotes: 'Side gate is unlocked',
+        preferredDate: tomorrowLocal(),
         timeWindow: 'MORNING',
         photoFileIds,
       })
@@ -69,6 +70,8 @@ describe('Phase 2: request → assignment → quote → approval', () => {
       expect(created.photos).toHaveLength(1);
       const res = await h.http.get(new URL(created.photos[0]!.url).pathname).expect(200);
       expect(res.headers['content-type']).toBe('image/jpeg');
+      // Shown by the web app from another origin in dev.
+      expect(res.headers['cross-origin-resource-policy']).toBe('cross-origin');
     });
 
     it('rejects oversized and unexpected uploads', async () => {
@@ -110,10 +113,11 @@ describe('Phase 2: request → assignment → quote → approval', () => {
         .set(bearer(other.accessToken))
         .send({
           tradeId: ids.electrical,
-          areaId: ids.yaba,
+          areaId: ids.heights,
           description: 'Another description here',
-          addressLine: '1 Somewhere Road',
-          preferredDate: tomorrowLagos(),
+          addressLine: '1 Somewhere Rd, Houston, TX',
+          postalCode: '77008',
+          preferredDate: tomorrowLocal(),
           timeWindow: 'MORNING',
           photoFileIds: [fileId],
         })
@@ -152,9 +156,10 @@ describe('Phase 2: request → assignment → quote → approval', () => {
       .set(bearer(client.accessToken))
       .send({
         tradeId: ids.electrical,
-        areaId: ids.yaba,
+        areaId: ids.heights,
         description: 'Valid description text',
-        addressLine: '1 Somewhere Road',
+        addressLine: '1 Somewhere Rd, Houston, TX',
+        postalCode: '77008',
         preferredDate: '2020-01-01',
         timeWindow: 'MORNING',
       })
@@ -166,18 +171,18 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     it('only offers to sealed, available artisans of the right trade, ranked by area then distance', async () => {
       const sealed = await sealedArtisan(h, {
         trade: 'electrical',
-        area: 'yaba',
+        area: 'heights',
         name: 'Tunde Ranked',
       });
       const unsealed = await sealedArtisan(h, {
         trade: 'electrical',
-        area: 'yaba',
+        area: 'heights',
         name: 'Not Sealed',
         sealed: false,
       });
       const plumber = await sealedArtisan(h, {
         trade: 'plumbing',
-        area: 'yaba',
+        area: 'heights',
         name: 'Wrong Trade',
       });
       const { id } = await createJob();
@@ -209,7 +214,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     it('offers a job with a working-hours deadline and hides the address until accepted', async () => {
       const art = await sealedArtisan(h, {
         trade: 'electrical',
-        area: 'yaba',
+        area: 'heights',
         name: 'Emeka Offer',
       });
       const { id } = await createJob();
@@ -235,7 +240,8 @@ describe('Phase 2: request → assignment → quote → approval', () => {
         status: 'ASSIGNED',
         viewer: 'artisan',
         addressLine: null,
-        landmark: 'Near Yaba bus stop',
+        accessNotes: null,
+        postalCode: '77008',
         offer: { status: 'OFFERED' },
       });
       expect(offered.body.client.phone).toMatch(/•/);
@@ -251,7 +257,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     it('declines: job returns to the queue and the artisan is not offered it again', async () => {
       const art = await sealedArtisan(h, {
         trade: 'electrical',
-        area: 'yaba',
+        area: 'heights',
         name: 'Kunle Decline',
       });
       const { id } = await createJob();
@@ -278,7 +284,11 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     });
 
     it('expires unanswered offers after the deadline', async () => {
-      const art = await sealedArtisan(h, { trade: 'electrical', area: 'yaba', name: 'Sola Late' });
+      const art = await sealedArtisan(h, {
+        trade: 'electrical',
+        area: 'heights',
+        name: 'Sola Late',
+      });
       const { id } = await createJob();
       await assign(id, art.profileId).expect(201);
       const aid = await offerId(id);
@@ -307,7 +317,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     it('an artisan cannot accept an offer late, even before the sweeper runs', async () => {
       const art = await sealedArtisan(h, {
         trade: 'electrical',
-        area: 'yaba',
+        area: 'heights',
         name: 'Gbenga Late',
       });
       const { id } = await createJob();
@@ -327,7 +337,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     it('two parallel accepts: exactly one wins', async () => {
       const art = await sealedArtisan(h, {
         trade: 'electrical',
-        area: 'yaba',
+        area: 'heights',
         name: 'Race Accept',
       });
       const { id } = await createJob();
@@ -348,7 +358,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     let jobId: string;
 
     beforeAll(async () => {
-      art = await sealedArtisan(h, { trade: 'electrical', area: 'yaba', name: 'Tunde Adeyemi' });
+      art = await sealedArtisan(h, { trade: 'electrical', area: 'heights', name: 'Tunde Adeyemi' });
       jobId = (await createJob()).id;
       await assign(jobId, art.profileId).expect(201);
       await h.http
@@ -361,11 +371,12 @@ describe('Phase 2: request → assignment → quote → approval', () => {
       const a = await job(jobId, art.accessToken).expect(200);
       expect(a.body).toMatchObject({
         status: 'ACCEPTED',
-        addressLine: '7 Herbert Macaulay Way, Yaba',
+        addressLine: '1234 Yale St, Houston, TX',
+        accessNotes: 'Side gate is unlocked',
       });
       const c = await job(jobId, client.accessToken).expect(200);
       expect(c.body.artisan).toMatchObject({ name: 'Tunde Adeyemi', sealed: true });
-      expect(c.body.artisan.phone).toMatch(/^\+234 \d\d•• ••• •\d\d$/);
+      expect(c.body.artisan.phone).toMatch(/^\+1 \(\d{3}\) •••-••\d\d$/);
       const p = await h.prisma.artisanProfile.findUniqueOrThrow({ where: { id: art.profileId } });
       expect(p).toMatchObject({ offersReceived: 1, offersAccepted: 1 });
     });
@@ -374,7 +385,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
       await h.http
         .post(`/v1/jobs/${jobId}/messages`)
         .set(bearer(client.accessToken))
-        .send({ body: 'Please call me on 0803 123 4567 when you arrive' })
+        .send({ body: 'Please call me at (713) 555-0123 when you arrive' })
         .expect(201);
       await h.http
         .post(`/v1/jobs/${jobId}/messages`)
@@ -388,7 +399,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
         .expect(200);
       expect(seenByArtisan.body[0]).toMatchObject({
         from: 'client',
-        body: 'Please call me on [hidden until payment] when you arrive',
+        body: 'Please call me at [hidden until payment] when you arrive',
       });
       expect(seenByArtisan.body[0].originalBody).toBeUndefined();
       expect(seenByArtisan.body[1]).toMatchObject({ from: 'me', body: 'I will come at 9am' });
@@ -399,7 +410,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
         .expect(200);
       expect(seenByAdmin.body[0]).toMatchObject({
         contactInfoFlag: true,
-        originalBody: 'Please call me on 0803 123 4567 when you arrive',
+        originalBody: 'Please call me at (713) 555-0123 when you arrive',
       });
 
       const after = seenByArtisan.body[0].createdAt;
@@ -420,40 +431,40 @@ describe('Phase 2: request → assignment → quote → approval', () => {
               kind: 'LABOUR',
               description: 'Rewire 2 socket circuits',
               quantity: 1,
-              unitPriceKobo: 2_500_000,
+              unitPriceCents: 25_000,
             },
             {
               kind: 'MATERIAL',
-              description: '2.5mm cable, 20m',
+              description: '12-gauge wire, 50 ft',
               quantity: 1,
-              unitPriceKobo: 900_000,
+              unitPriceCents: 9_000,
             },
-            { kind: 'MATERIAL', description: '13A sockets', quantity: 4, unitPriceKobo: 150_000 },
-            { kind: 'MATERIAL', description: '32A breaker', quantity: 1, unitPriceKobo: 450_000 },
+            { kind: 'MATERIAL', description: '15A outlets', quantity: 4, unitPriceCents: 1_500 },
+            { kind: 'MATERIAL', description: '20A breaker', quantity: 1, unitPriceCents: 4_500 },
           ],
         })
         .expect(201);
       expect(v1.body).toMatchObject({
         version: 1,
-        totalKobo: 4_450_000,
+        totalCents: 44_500,
         reviewStatus: 'NOT_REQUIRED',
       });
 
       const forArtisan = (await job(jobId, art.accessToken).expect(200)).body;
       expect(forArtisan.status).toBe('QUOTED');
       expect(forArtisan.quote.split).toEqual({
-        commissionKobo: 667_500,
-        commissionFromMaterialsKobo: 0,
-        artisanPayoutKobo: 3_782_500,
-        materialsAdvanceKobo: 1_950_000,
-        completionPayoutKobo: 1_832_500,
-        materialsAdvanceCapKobo: 15_000_000,
+        commissionCents: 6_675,
+        commissionFromMaterialsCents: 0,
+        artisanPayoutCents: 37_825,
+        materialsAdvanceCents: 19_500,
+        completionPayoutCents: 18_325,
+        materialsAdvanceCapCents: 50_000,
       });
       const forClient = (await job(jobId, client.accessToken).expect(200)).body;
       expect(forClient.quote).toMatchObject({
-        totalKobo: 4_450_000,
-        labourKobo: 2_500_000,
-        materialsKobo: 1_950_000,
+        totalCents: 44_500,
+        labourCents: 25_000,
+        materialsCents: 19_500,
       });
       expect(forClient.quote.split).toBeUndefined();
       expect(forClient.actions.sort()).toEqual(['approveQuote', 'cancel', 'rejectQuote']);
@@ -464,8 +475,8 @@ describe('Phase 2: request → assignment → quote → approval', () => {
         .set(bearer(art.accessToken))
         .send({
           items: [
-            { kind: 'LABOUR', description: 'Rewire', quantity: 1, unitPriceKobo: 2_000_000 },
-            { kind: 'MATERIAL', description: 'Cable', quantity: 1, unitPriceKobo: 900_000 },
+            { kind: 'LABOUR', description: 'Rewire', quantity: 1, unitPriceCents: 20_000 },
+            { kind: 'MATERIAL', description: 'Cable', quantity: 1, unitPriceCents: 9_000 },
           ],
         })
         .expect(201);
@@ -491,8 +502,8 @@ describe('Phase 2: request → assignment → quote → approval', () => {
         .set(bearer(art.accessToken))
         .send({
           items: [
-            { kind: 'LABOUR', description: 'Rewire', quantity: 1, unitPriceKobo: 2_000_000 },
-            { kind: 'MATERIAL', description: 'Cable', quantity: 1, unitPriceKobo: 700_000 },
+            { kind: 'LABOUR', description: 'Rewire', quantity: 1, unitPriceCents: 20_000 },
+            { kind: 'MATERIAL', description: 'Cable', quantity: 1, unitPriceCents: 7_000 },
           ],
         })
         .expect(201);
@@ -516,7 +527,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
         .post(`/v1/jobs/${jobId}/quotes`)
         .set(bearer(art.accessToken))
         .send({
-          items: [{ kind: 'LABOUR', description: 'Extra work', quantity: 1, unitPriceKobo: 100 }],
+          items: [{ kind: 'LABOUR', description: 'Extra work', quantity: 1, unitPriceCents: 100 }],
         })
         .expect(409);
       expect(late.body.code).toBe('INVALID_JOB_STATE');
@@ -529,7 +540,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     it('flags >70% materials, lets admin reject or approve, and audits the decision', async () => {
       const art = await sealedArtisan(h, {
         trade: 'electrical',
-        area: 'yaba',
+        area: 'heights',
         name: 'Heavy Materials',
       });
       const { id } = await createJob();
@@ -545,13 +556,13 @@ describe('Phase 2: request → assignment → quote → approval', () => {
             kind: 'LABOUR',
             description: 'Install compressor',
             quantity: 1,
-            unitPriceKobo: 200_000,
+            unitPriceCents: 2_000,
           },
           {
             kind: 'MATERIAL',
-            description: '1.5HP compressor',
+            description: '3-ton AC compressor',
             quantity: 1,
-            unitPriceKobo: 20_000_000,
+            unitPriceCents: 200_000,
           },
         ],
       };
@@ -561,13 +572,13 @@ describe('Phase 2: request → assignment → quote → approval', () => {
         .send(heavy)
         .expect(201);
       expect(q1.body.reviewStatus).toBe('PENDING');
-      // Shortfall comes out of materials; advance capped at ₦150,000.
+      // Shortfall comes out of materials; advance capped at $500.
       const split = (await job(id, art.accessToken)).body.quote.split;
       expect(split).toMatchObject({
-        commissionKobo: 3_030_000,
-        commissionFromMaterialsKobo: 2_830_000,
-        materialsAdvanceKobo: 15_000_000,
-        completionPayoutKobo: 2_170_000,
+        commissionCents: 30_300,
+        commissionFromMaterialsCents: 28_300,
+        materialsAdvanceCents: 50_000,
+        completionPayoutCents: 121_700,
       });
 
       const pending = await h.http
@@ -627,7 +638,7 @@ describe('Phase 2: request → assignment → quote → approval', () => {
     it('admin withdraws an assignment: job back in the queue, artisan loses access, audited', async () => {
       const art = await sealedArtisan(h, {
         trade: 'electrical',
-        area: 'yaba',
+        area: 'heights',
         name: 'Withdrawn Artisan',
       });
       const { id } = await createJob();
@@ -702,6 +713,6 @@ describe('Phase 2: request → assignment → quote → approval', () => {
   it("lists a client's own jobs", async () => {
     const mine = await h.http.get('/v1/jobs').set(bearer(client.accessToken)).expect(200);
     expect(mine.body.length).toBeGreaterThan(3);
-    expect(mine.body[0]).toMatchObject({ trade: 'Electrical', area: 'Yaba' });
+    expect(mine.body[0]).toMatchObject({ trade: 'Electrical', area: 'Houston Heights' });
   });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import type { JobView } from '@jiko/shared';
+import { marketDateString, SERVICE_ZIP_PATTERN, type JobView } from '@jiko/shared';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
@@ -12,17 +12,15 @@ type Option = { id: string; slug: string; name: string };
 type Photo = { id: string; preview: string };
 
 const HINTS: Record<string, string> = {
-  plumbing: 'Leaks, blockages, pumps, taps',
-  electrical: 'Sockets, wiring, changeovers, inverters',
-  'ac-repair': 'Servicing, gas top-up, not cooling',
+  plumbing: 'Leaks, clogs, water heaters, toilets',
+  electrical: 'Outlets, breakers, fans, generator hookups',
+  hvac: 'AC not cooling, furnace, tune-ups, thermostats',
 };
 const STEPS = ['Book a job', 'Describe the problem', 'Where and when', 'Review'];
 
 function nextDays(n: number): string[] {
   const out: string[] = [];
-  const lagosNow = Date.now() + 3_600_000;
-  for (let i = 0; i < n; i++)
-    out.push(new Date(lagosNow + i * 86_400_000).toISOString().slice(0, 10));
+  for (let i = 0; i < n; i++) out.push(marketDateString(new Date(Date.now() + i * 86_400_000)));
   return out;
 }
 
@@ -57,7 +55,8 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
   const [uploading, setUploading] = useState(0);
   const [areaId, setAreaId] = useState<string | null>(null);
   const [addressLine, setAddress] = useState('');
-  const [landmark, setLandmark] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [accessNotes, setAccessNotes] = useState('');
   const [day, setDay] = useState(days[1]);
   const [timeWindow, setWindow] = useState<'MORNING' | 'AFTERNOON' | 'EVENING'>('MORNING');
   const [error, setError] = useState<string | null>(null);
@@ -68,7 +67,7 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
   const canNext = [
     !!tradeId,
     description.trim().length >= 10 && uploading === 0,
-    !!areaId && addressLine.trim().length >= 5,
+    !!areaId && addressLine.trim().length >= 5 && SERVICE_ZIP_PATTERN.test(postalCode),
     true,
   ][step];
 
@@ -100,7 +99,8 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
           areaId,
           description,
           addressLine,
-          landmark: landmark || undefined,
+          postalCode,
+          accessNotes: accessNotes || undefined,
           preferredDate: day,
           timeWindow,
           photoFileIds: photos.map((p) => p.id),
@@ -239,16 +239,33 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
                 value={addressLine}
                 onChange={(e) => setAddress(e.target.value)}
                 autoComplete="street-address"
-                placeholder="House number and street"
+                placeholder="1234 Yale St, Apt 2"
               />
             </label>
             <label className="block space-y-2">
-              <span className="text-sm font-medium">Nearest landmark (optional)</span>
+              <span className="text-sm font-medium">ZIP code</span>
               <input
                 className={input}
-                value={landmark}
-                onChange={(e) => setLandmark(e.target.value)}
-                placeholder="e.g. Opposite the filling station"
+                value={postalCode}
+                onChange={(e) => setPostalCode(e.target.value.replace(/\D/g, '').slice(0, 5))}
+                inputMode="numeric"
+                autoComplete="postal-code"
+                placeholder="77008"
+              />
+              {postalCode.length === 5 && !SERVICE_ZIP_PATTERN.test(postalCode) && (
+                <span className="block text-xs text-danger">
+                  Jiko serves the Houston area for now.
+                </span>
+              )}
+            </label>
+            <label className="block space-y-2">
+              <span className="text-sm font-medium">Access notes (optional)</span>
+              <input
+                className={input}
+                value={accessNotes}
+                onChange={(e) => setAccessNotes(e.target.value)}
+                maxLength={200}
+                placeholder="Gate code, parking, pets"
               />
             </label>
             <div className="space-y-2">
@@ -276,7 +293,8 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
               </div>
             </div>
             <p className="text-xs text-muted">
-              Your full address is only shared with the artisan after they accept the job.
+              Your full address and access notes are shared with the artisan only after they accept
+              the job.
             </p>
           </>
         )}
@@ -290,7 +308,7 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
                   ['Trade', trade?.name],
                   ['Problem', description],
                   ['Photos', photos.length ? `${photos.length} attached` : 'None'],
-                  ['Where', `${addressLine}, ${area?.name ?? ''}`],
+                  ['Where', `${addressLine}, ${area?.name ?? ''} ${postalCode}`],
                   ['When', `${formatDay(day)}, ${TIME_WINDOW[timeWindow]}`],
                 ].map(([k, v]) => (
                   <div key={k} className="flex gap-3">
@@ -304,7 +322,7 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
             <ol className="space-y-3 text-sm">
               {[
                 'Jiko assigns a Craft Seal artisan near you',
-                'They visit or inspect, then send an itemised quote',
+                'They visit or inspect, then send an itemized quote',
                 'You approve and pay — Jiko holds the money',
                 'The artisan is paid only when you confirm the job is done',
               ].map((s, i) => (

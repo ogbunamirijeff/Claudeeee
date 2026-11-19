@@ -69,6 +69,8 @@ export class LocalStorageController {
     if (!obj) throw new AppException(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Not found');
     res.setHeader('content-type', obj.contentType);
     res.setHeader('cache-control', 'private, max-age=300');
+    // The web app (another origin in dev) displays these images; helmet defaults CORP to same-origin.
+    res.setHeader('cross-origin-resource-policy', 'cross-origin');
     res.send(obj.data);
   }
 }

@@ -14,6 +14,6 @@ export interface AdminJobRow {
   artisanName: string | null;
   offerStatus: string | null;
   offerExpiresAt: string | null;
-  quoteTotalKobo: number | null;
+  quoteTotalCents: number | null;
   quoteReviewStatus: string | null;
 }

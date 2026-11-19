@@ -62,7 +62,7 @@ export class AdminJobsController {
         },
         quotes: {
           where: { status: { in: ['SUBMITTED', 'APPROVED'] } },
-          select: { totalKobo: true, reviewStatus: true },
+          select: { totalCents: true, reviewStatus: true },
         },
         statusEvents: { orderBy: { createdAt: 'desc' }, take: 1, select: { createdAt: true } },
       },
@@ -85,7 +85,7 @@ export class AdminJobsController {
       artisanName: j.assignments[0]?.artisan.displayName ?? null,
       offerStatus: j.assignments[0]?.status ?? null,
       offerExpiresAt: j.assignments[0]?.expiresAt?.toISOString() ?? null,
-      quoteTotalKobo: j.quotes[0]?.totalKobo ?? null,
+      quoteTotalCents: j.quotes[0]?.totalCents ?? null,
       quoteReviewStatus: j.quotes[0]?.reviewStatus ?? null,
     }));
   }

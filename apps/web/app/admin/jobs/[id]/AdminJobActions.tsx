@@ -68,7 +68,7 @@ export function AdminJobActions(props: {
                   <span className="font-semibold">{c.name}</span>
                   <Badge tone={c.areaMatch ? 'success' : 'neutral'}>
                     {c.areaMatch ? props.areaName : (c.areas[0] ?? '—')}
-                    {c.distanceKm !== null ? ` · ${c.distanceKm} km` : ''}
+                    {c.distanceMiles !== null ? ` · ${c.distanceMiles} mi` : ''}
                   </Badge>
                 </span>
                 <span className="mt-1 block text-xs text-muted">
@@ -80,7 +80,7 @@ export function AdminJobActions(props: {
             ))}
           </div>
           <p className="text-xs text-muted">
-            The offer expires 2 working hours after sending (07:00–20:00 WAT).
+            The offer expires 2 working hours after sending (7 AM–8 PM Houston time).
           </p>
           <button
             className={btn.primary}

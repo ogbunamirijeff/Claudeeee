@@ -35,11 +35,19 @@ export const EnvSchema = z
     DATA_ENCRYPTION_PREVIOUS_KEYS: z.string().default(''),
 
     // SMS
-    SMS_PROVIDER: z.enum(['termii', 'console']).default('console'),
-    TERMII_BASE_URL: z.string().url().default('https://api.ng.termii.com'),
-    TERMII_API_KEY: z.string().optional(),
-    TERMII_SENDER_ID: z.string().default('Jiko'),
-    TERMII_CHANNEL: z.enum(['dnd', 'generic', 'whatsapp']).default('dnd'),
+    SMS_PROVIDER: z.enum(['twilio', 'console']).default('console'),
+    TWILIO_ACCOUNT_SID: z.string().optional(),
+    TWILIO_AUTH_TOKEN: z.string().optional(),
+    /** A2P 10DLC / toll-free registered sender: either a Messaging Service SID or an E.164 number. */
+    TWILIO_MESSAGING_SERVICE_SID: z.string().optional(),
+    TWILIO_FROM_NUMBER: z.string().optional(),
+
+    // Payments (Phase 3): Stripe Connect, separate charges and transfers.
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+    // Market
+    MARKET_TIMEZONE: z.string().default('America/Chicago'), // Houston
 
     // File storage. "local" stores files on disk behind HMAC-signed API URLs (dev/test only).
     PUBLIC_API_URL: z.string().url().default('http://localhost:4000'),
@@ -57,24 +65,33 @@ export const EnvSchema = z
     // Background jobs (BullMQ). Disable in tests or on web-only instances.
     JOBS_WORKER_ENABLED: bool.default('true'),
     OFFER_SWEEP_INTERVAL_MS: z.coerce.number().int().min(1000).default(60_000),
+    /** Redis key prefix for BullMQ queues (isolates environments sharing one Redis). */
+    QUEUE_PREFIX: z
+      .string()
+      .regex(/^[a-z0-9:_-]+$/)
+      .default('jiko'),
 
     // Business rules
     COMMISSION_BPS: z.coerce.number().int().min(0).max(10_000).default(1500),
-    MATERIALS_ADVANCE_CAP_KOBO: z.coerce
-      .number()
-      .int()
-      .min(0)
-      .max(2_147_483_647)
-      .default(15_000_000), // ₦150,000
+    MATERIALS_ADVANCE_CAP_CENTS: z.coerce.number().int().min(0).max(2_147_483_647).default(50_000), // $500
     MATERIALS_REVIEW_THRESHOLD_BPS: z.coerce.number().int().min(0).max(10_000).default(7000), // 70%
   })
   .superRefine((env, ctx) => {
-    if (env.SMS_PROVIDER === 'termii' && !env.TERMII_API_KEY) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['TERMII_API_KEY'],
-        message: 'required when SMS_PROVIDER=termii',
-      });
+    if (env.SMS_PROVIDER === 'twilio') {
+      if (!env.TWILIO_ACCOUNT_SID || !env.TWILIO_AUTH_TOKEN) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['TWILIO_ACCOUNT_SID'],
+          message: 'Twilio credentials are required when SMS_PROVIDER=twilio',
+        });
+      }
+      if (!env.TWILIO_MESSAGING_SERVICE_SID && !env.TWILIO_FROM_NUMBER) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['TWILIO_MESSAGING_SERVICE_SID'],
+          message: 'Set TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM_NUMBER',
+        });
+      }
     }
     if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === 'local') {
       ctx.addIssue({

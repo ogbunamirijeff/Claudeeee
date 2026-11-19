@@ -1,5 +1,5 @@
 import type { MeResponse } from '@jiko/shared';
-import { formatNgPhone } from '@jiko/shared';
+import { formatPhone } from '@jiko/shared';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { Logo } from '@/components/Logo';
@@ -20,11 +20,11 @@ export default async function AccountPage() {
         {me.name ? `Hello, ${me.name.split(' ')[0]}` : 'Welcome to Jiko'}
       </h1>
       <dl className="mt-6 divide-y divide-line rounded-xl border border-line bg-surface">
-        <Row label="Phone" value={formatNgPhone(me.phone)} />
+        <Row label="Phone" value={formatPhone(me.phone)} />
         <Row label="Roles" value={me.roles.map((r) => r.toLowerCase()).join(', ')} />
         <Row
           label="Member since"
-          value={new Date(me.createdAt).toLocaleDateString('en-NG', { dateStyle: 'medium' })}
+          value={new Date(me.createdAt).toLocaleDateString('en-US', { dateStyle: 'medium' })}
         />
       </dl>
       {me.roles.includes('ADMIN') && (

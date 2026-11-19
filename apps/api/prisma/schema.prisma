@@ -1,6 +1,6 @@
 // Jiko — Prisma schema
 // Conventions
-// - Money is Int kobo (₦1 = 100 kobo). Max ≈ ₦21.4M per row; non-negative via CHECK constraints.
+// - Money is Int US cents ($1 = 100 cents). Max ≈ $21.4M per row; non-negative via CHECK constraints.
 // - Timestamps are UTC. Tables are snake_case via @@map; columns stay camelCase.
 // - Integrity rules Prisma can't express (CHECKs, append-only triggers, partial unique indexes)
 //   live in prisma/migrations/*_integrity/migration.sql.
@@ -25,24 +25,25 @@ enum Role {
 enum UserStatus {
   ACTIVE
   SUSPENDED
-  DELETED // erased on request (NDPA): PII anonymised, financial records kept
+  DELETED // erased on request (state privacy laws): PII anonymised, financial records kept
 }
 
 enum SealStatus {
   NOT_STARTED
   IN_PROGRESS
-  SEALED      // all 6 checks PASSED → can receive jobs
-  SUSPENDED   // admin pause (complaints, investigation)
+  SEALED // all 6 checks PASSED → can receive jobs
+  SUSPENDED // admin pause (complaints, investigation)
   REVOKED
 }
 
+// Craft Seal, US edition. All six must be PASSED before an artisan can receive jobs.
 enum VerificationType {
-  GOVERNMENT_ID
-  PHONE_ADDRESS
-  REFERENCES
-  SKILLS_TEST
-  GUARANTOR
-  BACKGROUND_CHECK
+  GOVERNMENT_ID // photo ID matches the person (Stripe Identity or in person)
+  STATE_LICENSE // active trade license verified against the state registry (TX: TSBPE / TDLR)
+  INSURANCE // general liability certificate, not expired
+  BACKGROUND_CHECK // FCRA-compliant provider (e.g. Checkr), with candidate consent
+  REFERENCES // two references contacted
+  SKILLS_ASSESSMENT // interview or practical test by Jiko
 }
 
 enum VerificationStatus {
@@ -52,23 +53,23 @@ enum VerificationStatus {
 }
 
 enum TimeWindow {
-  MORNING   // 08:00–12:00
+  MORNING // 08:00–12:00
   AFTERNOON // 12:00–16:00
-  EVENING   // 16:00–19:00
+  EVENING // 16:00–19:00
 }
 
 enum JobStatus {
   PENDING_ASSIGNMENT // submitted, waiting for admin
-  ASSIGNED           // offered to an artisan, awaiting accept/decline
-  ACCEPTED           // artisan accepted, inspecting
-  QUOTED             // quote submitted, awaiting client
-  AWAITING_PAYMENT   // client approved quote
-  PAID               // funds held, artisan not yet on site
-  IN_PROGRESS        // artisan on site with before-photo → materials advance released
-  WORK_SUBMITTED     // artisan marked done; 48h auto-release clock running
-  COMPLETED          // funds released
+  ASSIGNED // offered to an artisan, awaiting accept/decline
+  ACCEPTED // artisan accepted, inspecting
+  QUOTED // quote submitted, awaiting client
+  AWAITING_PAYMENT // client approved quote
+  PAID // funds held, artisan not yet on site
+  IN_PROGRESS // artisan on site with before-photo → materials advance released
+  WORK_SUBMITTED // artisan marked done; 48h auto-release clock running
+  COMPLETED // funds released
   DISPUTED
-  REFUNDED           // closed with full refund
+  REFUNDED // closed with full refund
   CANCELLED
 }
 
@@ -103,12 +104,12 @@ enum QuoteItemKind {
 // Escrow state machine (unit-tested in packages/shared)
 // In-flight transfers/refunds are tracked on Payout/Refund rows, not here.
 enum PaymentStatus {
-  INITIALIZED        // Paystack transaction initialised, client not yet paid
-  HELD               // charge.success verified → full amount in escrow
+  INITIALIZED // Stripe PaymentIntent created, client not yet paid
+  HELD // charge.success verified → full amount in escrow
   PARTIALLY_RELEASED // materials advance released; labour + commission still held
-  RELEASED           // escrow fully settled to artisan + commission
+  RELEASED // escrow fully settled to artisan + commission
   PARTIALLY_REFUNDED // dispute: part refunded, rest released
-  REFUNDED           // dispute/cancellation: escrow refunded
+  REFUNDED // dispute/cancellation: escrow refunded
   FAILED
   ABANDONED
 }
@@ -137,19 +138,19 @@ enum RefundStatus {
 
 // Double-entry: every LedgerEntry moves amount from debitAccount → creditAccount.
 enum LedgerAccount {
-  PAYSTACK_INFLOW     // external: money received from client
-  ESCROW              // held funds (per job)
-  ARTISAN_PAYABLE     // owed to artisan, not yet transferred
-  ARTISAN_PAID_OUT    // external: transferred to artisan bank
+  PAYMENT_INFLOW // external: money received from client (Stripe charge)
+  ESCROW // held funds (per job)
+  ARTISAN_PAYABLE // owed to artisan, not yet transferred
+  ARTISAN_PAID_OUT // external: transferred to artisan bank
   PLATFORM_COMMISSION // Jiko revenue
-  PAYSTACK_FEES       // expense: charge + transfer fees, absorbed by Jiko
-  PLATFORM_LOSSES     // expense: e.g. materials advance refunded under admin override
-  CLIENT_REFUNDED     // external: returned to client
+  PROCESSING_FEES // expense: Stripe processing + payout fees, absorbed by Jiko
+  PLATFORM_LOSSES // expense: e.g. materials advance refunded under admin override
+  CLIENT_REFUNDED // external: returned to client
 }
 
 enum DisputeKind {
   COMPLETION // raised instead of confirming completion
-  WARRANTY   // 7-day redo claim on a platform-paid job
+  WARRANTY // 7-day redo claim on a platform-paid job
 }
 
 enum DisputeStatus {
@@ -185,7 +186,7 @@ enum NotificationStatus {
 }
 
 enum FileSensitivity {
-  STANDARD  // job/dispute photos: job participants + admins, signed URLs
+  STANDARD // job/dispute photos: job participants + admins, signed URLs
   SENSITIVE // ID docs, verification evidence: private bucket, admins only, every view audited
 }
 
@@ -194,7 +195,7 @@ enum FileKind {
   ID_DOCUMENT
   VERIFICATION_EVIDENCE
   JOB_REQUEST_PHOTO // client's photos of the problem
-  JOB_PHOTO_BEFORE  // artisan, on site, required to start work
+  JOB_PHOTO_BEFORE // artisan, on site, required to start work
   JOB_PHOTO_AFTER
   MATERIALS_RECEIPT // required before WORK_SUBMITTED when the quote has materials
   DISPUTE_EVIDENCE
@@ -204,33 +205,33 @@ enum FileKind {
 // ─────────────────────────── Identity & auth ───────────────────────────
 
 model User {
-  id          String     @id @default(cuid())
-  phone       String     @unique // E.164, e.g. +2348012345678
-  name        String?
-  email       String?
-  roles       Role[]     @default([CLIENT])
-  status      UserStatus @default(ACTIVE)
-  defaultAreaId String?
-  lastLoginAt DateTime?
-  consentVersion String?   // Terms/Privacy version accepted (NDPA lawful basis)
+  id             String     @id @default(cuid())
+  phone          String     @unique // E.164, e.g. +2348012345678
+  name           String?
+  email          String?
+  roles          Role[]     @default([CLIENT])
+  status         UserStatus @default(ACTIVE)
+  defaultAreaId  String?
+  lastLoginAt    DateTime?
+  consentVersion String? // Terms/Privacy + TCPA text-message consent version accepted
   consentedAt    DateTime?
   deletedAt      DateTime?
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
 
-  defaultArea      ServiceArea?   @relation(fields: [defaultAreaId], references: [id])
+  defaultArea      ServiceArea?        @relation(fields: [defaultAreaId], references: [id])
   artisanProfile   ArtisanProfile?
   refreshTokens    RefreshToken[]
   devices          PushDevice[]
-  jobRequests      JobRequest[]   @relation("ClientJobs")
-  assignmentsMade  Assignment[]   @relation("AssignedBy")
+  jobRequests      JobRequest[]        @relation("ClientJobs")
+  assignmentsMade  Assignment[]        @relation("AssignedBy")
   payments         Payment[]
   checksReviewed   VerificationCheck[] @relation("CheckReviewer")
-  quotesReviewed   Quote[]        @relation("QuoteReviewer")
-  disputesOpened   Dispute[]      @relation("DisputeOpener")
-  disputesResolved Dispute[]      @relation("DisputeResolver")
-  reviewsWritten   Review[]       @relation("ReviewAuthor")
-  reviewsReceived  Review[]       @relation("ReviewSubject")
+  quotesReviewed   Quote[]             @relation("QuoteReviewer")
+  disputesOpened   Dispute[]           @relation("DisputeOpener")
+  disputesResolved Dispute[]           @relation("DisputeResolver")
+  reviewsWritten   Review[]            @relation("ReviewAuthor")
+  reviewsReceived  Review[]            @relation("ReviewSubject")
   messages         Message[]
   notifications    Notification[]
   files            File[]
@@ -241,14 +242,14 @@ model User {
 }
 
 model OtpChallenge {
-  id          String    @id @default(cuid())
-  phone       String
-  codeHash    String    // sha256(code + pepper); code never stored
-  attempts    Int       @default(0)
-  expiresAt   DateTime
-  consumedAt  DateTime?
-  ipAddress   String?
-  createdAt   DateTime  @default(now())
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String // sha256(code + pepper); code never stored
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  ipAddress  String?
+  createdAt  DateTime  @default(now())
 
   @@index([phone, createdAt])
   @@map("otp_challenges")
@@ -256,15 +257,15 @@ model OtpChallenge {
 
 // Rotating refresh tokens. Re-use of a rotated token revokes the whole family.
 model RefreshToken {
-  id         String    @id @default(cuid())
-  userId     String
-  familyId   String
-  tokenHash  String    @unique // sha256 of the opaque token
+  id           String    @id @default(cuid())
+  userId       String
+  familyId     String
+  tokenHash    String    @unique // sha256 of the opaque token
   replacedById String?
-  deviceInfo String?
-  expiresAt  DateTime
-  revokedAt  DateTime?
-  createdAt  DateTime  @default(now())
+  deviceInfo   String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime  @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -277,7 +278,7 @@ model PushDevice {
   id            String   @id @default(cuid())
   userId        String
   expoPushToken String   @unique
-  platform      String   // android | ios
+  platform      String // android | ios
   lastSeenAt    DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -305,7 +306,7 @@ model ServiceArea {
   slug     String  @unique // lekki | ajah | yaba
   name     String
   lga      String?
-  lat      Float   // centroid, for distance scoring
+  lat      Float // centroid, for distance scoring
   lng      Float
   isActive Boolean @default(true)
 
@@ -330,23 +331,20 @@ model ArtisanProfile {
   sealStatus      SealStatus @default(NOT_STARTED)
   sealGrantedAt   DateTime?
 
-  // Payout destination. accountNumberEnc is AES-256-GCM (app-level key from env) and is
-  // cleared once the Paystack transfer recipient exists; only the last 4 digits are kept.
-  bankCode               String?
-  accountNumberEnc       String?
-  accountNumberLast4     String?
-  accountName            String?
-  paystackRecipientCode  String?
+  // Payout destination: a Stripe Connect Express account. Stripe collects and holds the bank
+  // details, tax info (W-9/1099) and KYC; Jiko never stores account or routing numbers.
+  stripeAccountId String? @unique
+  payoutsEnabled  Boolean @default(false)
 
   // Cached matching signals — platform-completed jobs only (recomputed by worker)
-  ratingAvg          Float @default(0)
-  ratingCount        Int   @default(0)
-  jobsCompleted      Int   @default(0)
-  offersReceived     Int   @default(0)
-  offersAccepted     Int   @default(0)
+  ratingAvg          Float     @default(0)
+  ratingCount        Int       @default(0)
+  jobsCompleted      Int       @default(0)
+  offersReceived     Int       @default(0)
+  offersAccepted     Int       @default(0)
   avgResponseSeconds Int?
-  completionRate     Float @default(0) // completed / accepted
-  disputeRate        Float @default(0)
+  completionRate     Float     @default(0) // completed / accepted
+  disputeRate        Float     @default(0)
   statsUpdatedAt     DateTime?
 
   createdAt DateTime @default(now())
@@ -395,10 +393,10 @@ model VerificationCheck {
   reviewerId     String?
   reviewedAt     DateTime?
   notes          String?
-  details        Json?   // e.g. references' names/phones, guarantor details, test score
-  evidenceFileId String? @unique
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  details        Json? // e.g. references' names/phones, guarantor details, test score
+  evidenceFileId String?            @unique
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   artisan  ArtisanProfile @relation(fields: [artisanId], references: [id], onDelete: Cascade)
   reviewer User?          @relation("CheckReviewer", fields: [reviewerId], references: [id])
@@ -418,7 +416,8 @@ model JobRequest {
   areaId        String
   description   String
   addressLine   String
-  landmark      String?
+  postalCode    String
+  accessNotes   String? // gate code, parking, pets — artisan sees it after accepting
   lat           Float?
   lng           Float?
   preferredDate DateTime   @db.Date
@@ -461,7 +460,7 @@ model JobStatusEvent {
   jobId     String
   from      JobStatus?
   to        JobStatus
-  actorId   String?    // null = system (e.g. auto-release worker)
+  actorId   String? // null = system (e.g. auto-release worker)
   note      String?
   createdAt DateTime   @default(now())
 
@@ -484,8 +483,8 @@ model Assignment {
   acceptedAt    DateTime? // kept even if the assignment is later withdrawn (acceptance-rate metric)
   declineReason String?
   // Snapshot of signals at assignment time → training data for weighted matching
-  distanceKm    Float?
-  matchSnapshot Json?  // { rating, completionRate, avgResponseSeconds, jobsCompleted, areaMatch, ... }
+  distanceMiles    Float?
+  matchSnapshot Json? // { rating, completionRate, avgResponseSeconds, jobsCompleted, areaMatch, ... }
 
   job        JobRequest     @relation(fields: [jobId], references: [id], onDelete: Cascade)
   artisan    ArtisanProfile @relation(fields: [artisanId], references: [id])
@@ -499,32 +498,32 @@ model Assignment {
 }
 
 model Quote {
-  id                 String      @id @default(cuid())
-  jobId              String
-  assignmentId       String
-  artisanId          String
-  version            Int         @default(1)
-  status             QuoteStatus @default(SUBMITTED)
-  labourKobo         Int
-  materialsKobo      Int
-  totalKobo          Int         // what the client pays
-  commissionBps      Int         // snapshot, 1500 = 15%
-  commissionKobo     Int
+  id                           String            @id @default(cuid())
+  jobId                        String
+  assignmentId                 String
+  artisanId                    String
+  version                      Int               @default(1)
+  status                       QuoteStatus       @default(SUBMITTED)
+  labourCents                  Int
+  materialsCents               Int
+  totalCents                   Int // what the client pays
+  commissionBps                Int // snapshot, 1500 = 15%
+  commissionCents              Int
   // Commission comes from labour first; only a shortfall is taken from materials.
-  commissionFromMaterialsKobo Int @default(0)
-  artisanPayoutKobo  Int         // totalKobo - commissionKobo
+  commissionFromMaterialsCents Int               @default(0)
+  artisanPayoutCents           Int // totalCents - commissionCents
   // Snapshot of the split (packages/shared splitQuote) at submission time.
-  materialsAdvanceCapKobo Int
-  materialsAdvanceKobo    Int    // released when the job starts on site
-  completionPayoutKobo    Int    // released on completion
-  reviewStatus       QuoteReviewStatus @default(NOT_REQUIRED)
-  reviewedById       String?
-  reviewedAt         DateTime?
-  reviewNote         String?
-  notes              String?
-  submittedAt        DateTime    @default(now())
-  decidedAt          DateTime?
-  rejectionReason    String?
+  materialsAdvanceCapCents     Int
+  materialsAdvanceCents        Int // released when the job starts on site
+  completionPayoutCents        Int // released on completion
+  reviewStatus                 QuoteReviewStatus @default(NOT_REQUIRED)
+  reviewedById                 String?
+  reviewedAt                   DateTime?
+  reviewNote                   String?
+  notes                        String?
+  submittedAt                  DateTime          @default(now())
+  decidedAt                    DateTime?
+  rejectionReason              String?
 
   job        JobRequest     @relation(fields: [jobId], references: [id], onDelete: Cascade)
   assignment Assignment     @relation(fields: [assignmentId], references: [id])
@@ -544,8 +543,8 @@ model QuoteItem {
   kind           QuoteItemKind
   description    String
   quantity       Int           @default(1)
-  unitPriceKobo  Int
-  totalKobo      Int
+  unitPriceCents Int
+  totalCents     Int
   sortOrder      Int           @default(0)
 
   quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
@@ -556,23 +555,23 @@ model QuoteItem {
 // ─────────────────────────── Money ───────────────────────────
 
 model Payment {
-  id                String        @id @default(cuid())
-  jobId             String
-  quoteId           String        @unique
-  clientId          String
-  amountKobo        Int
-  currency          String        @default("NGN")
-  status            PaymentStatus @default(INITIALIZED)
-  paystackReference String        @unique // our generated reference
-  accessCode        String?
-  channel           String?       // card | bank_transfer | ussd ...
-  feesKobo          Int?          // Paystack fee reported on verify
-  paidAt            DateTime?
+  id                    String        @id @default(cuid())
+  jobId                 String
+  quoteId               String        @unique
+  clientId              String
+  amountCents           Int
+  currency              String        @default("USD")
+  status                PaymentStatus @default(INITIALIZED)
+  reference             String        @unique // our idempotency key for the PaymentIntent
+  stripePaymentIntentId String?       @unique
+  channel               String? // card | bank_transfer | ussd ...
+  feesCents             Int? // Stripe processing fee (balance transaction)
+  paidAt                DateTime?
   // Caches of ledger-derived totals. Written only in the same DB transaction as the ledger rows.
-  refundedKobo      Int           @default(0)
-  releasedKobo      Int           @default(0)
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  refundedCents         Int           @default(0)
+  releasedCents         Int           @default(0)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
 
   job     JobRequest    @relation(fields: [jobId], references: [id])
   quote   Quote         @relation(fields: [quoteId], references: [id])
@@ -590,13 +589,13 @@ model Payout {
   jobId             String
   paymentId         String
   artisanId         String
-  amountKobo        Int
+  amountCents       Int
   status            PayoutStatus   @default(PENDING)
   trigger           ReleaseTrigger
-  transferReference String         @unique // idempotency key sent to Paystack
-  transferCode      String?
-  recipientCode     String
-  feeKobo           Int?           // Paystack transfer fee (absorbed by Jiko)
+  transferReference String         @unique // idempotency key sent to Stripe
+  stripeTransferId  String?        @unique
+  stripeAccountId   String // destination Express account
+  feeCents          Int? // payout fee, absorbed by Jiko
   failureReason     String?
   initiatedAt       DateTime       @default(now())
   completedAt       DateTime?
@@ -611,20 +610,20 @@ model Payout {
 }
 
 model Refund {
-  id                String       @id @default(cuid())
-  paymentId         String
-  disputeId         String?
-  amountKobo        Int
-  status            RefundStatus @default(PENDING)
-  paystackRefundId  String?      @unique
-  reason            String?
+  id                       String       @id @default(cuid())
+  paymentId                String
+  disputeId                String?
+  amountCents              Int
+  status                   RefundStatus @default(PENDING)
+  stripeRefundId           String?      @unique
+  reason                   String?
   // Materials advance is non-refundable by default. When an admin overrides, the advanced
   // portion is funded by Jiko (ledger: PLATFORM_LOSSES → CLIENT_REFUNDED).
-  includesMaterialsAdvance Boolean @default(false)
+  includesMaterialsAdvance Boolean      @default(false)
   overrideReason           String?
-  initiatedById     String
-  createdAt         DateTime     @default(now())
-  completedAt       DateTime?
+  initiatedById            String
+  createdAt                DateTime     @default(now())
+  completedAt              DateTime?
 
   payment Payment       @relation(fields: [paymentId], references: [id])
   dispute Dispute?      @relation(fields: [disputeId], references: [id])
@@ -636,16 +635,16 @@ model Refund {
 // Append-only (UPDATE/DELETE blocked by DB trigger). Balanced by construction.
 model LedgerEntry {
   id            String        @id @default(cuid())
-  txnId         String        // groups entries written in one DB transaction
+  txnId         String // groups entries written in one DB transaction
   debitAccount  LedgerAccount
   creditAccount LedgerAccount
-  amountKobo    Int           // > 0 (CHECK)
+  amountCents   Int // > 0 (CHECK)
   jobId         String?
   paymentId     String?
   payoutId      String?
   refundId      String?
   memo          String
-  createdById   String?       // null = system
+  createdById   String? // null = system
   createdAt     DateTime      @default(now())
 
   job     JobRequest? @relation(fields: [jobId], references: [id])
@@ -662,8 +661,8 @@ model LedgerEntry {
 // Every inbound webhook stored once; unique key gives idempotency
 model WebhookEvent {
   id          String    @id @default(cuid())
-  provider    String    // paystack
-  eventKey    String    // e.g. "charge.success:<reference>" / "transfer.success:<transfer_code>"
+  provider    String // stripe
+  eventKey    String // e.g. "charge.success:<reference>" / "transfer.success:<transfer_code>"
   eventType   String
   payload     Json
   receivedAt  DateTime  @default(now())
@@ -685,7 +684,7 @@ model Dispute {
   description     String
   status          DisputeStatus      @default(OPEN)
   resolution      DisputeResolution?
-  refundKobo      Int?
+  refundCents     Int?
   resolutionNotes String?
   resolvedById    String?
   resolvedAt      DateTime?
@@ -707,7 +706,7 @@ model Review {
   authorId  String
   subjectId String
   direction ReviewDirection
-  rating    Int             // 1–5 (CHECK)
+  rating    Int // 1–5 (CHECK)
   comment   String?
   isHidden  Boolean         @default(false) // admin moderation
   createdAt DateTime        @default(now())
@@ -724,14 +723,14 @@ model Review {
 // ─────────────────────────── Comms ───────────────────────────
 
 model Message {
-  id               String    @id @default(cuid())
-  jobId            String
-  senderId         String
-  body             String    // as shown to the other party (contact info masked pre-payment)
-  originalBody     String?   // set only when masking changed the text; admin-visible
-  contactInfoFlag  Boolean   @default(false)
-  readAt           DateTime?
-  createdAt        DateTime  @default(now())
+  id              String    @id @default(cuid())
+  jobId           String
+  senderId        String
+  body            String // as shown to the other party (contact info masked pre-payment)
+  originalBody    String? // set only when masking changed the text; admin-visible
+  contactInfoFlag Boolean   @default(false)
+  readAt          DateTime?
+  createdAt       DateTime  @default(now())
 
   job    JobRequest @relation(fields: [jobId], references: [id], onDelete: Cascade)
   sender User       @relation(fields: [senderId], references: [id])
@@ -745,19 +744,19 @@ model Notification {
   id                String              @id @default(cuid())
   userId            String
   channel           NotificationChannel
-  template          String              // e.g. job.assigned, quote.submitted
+  template          String // e.g. job.assigned, quote.submitted
   payload           Json
   status            NotificationStatus  @default(QUEUED)
   providerMessageId String?
   attempts          Int                 @default(0)
   error             String?
-  fallbackOfId      String?             // SMS sent because this WhatsApp failed
-  readAt            DateTime?           // in-app inbox
+  fallbackOfId      String? // SMS sent because this WhatsApp failed
+  readAt            DateTime? // in-app inbox
   sentAt            DateTime?
   createdAt         DateTime            @default(now())
 
-  user       User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fallbackOf Notification? @relation("Fallback", fields: [fallbackOfId], references: [id])
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fallbackOf Notification?  @relation("Fallback", fields: [fallbackOfId], references: [id])
   fallbacks  Notification[] @relation("Fallback")
 
   @@index([userId, createdAt])
@@ -768,21 +767,21 @@ model Notification {
 // ─────────────────────────── Files ───────────────────────────
 
 model File {
-  id           String   @id @default(cuid())
-  ownerId      String
-  kind         FileKind
-  sensitivity  FileSensitivity
-  bucket       String
-  storageKey   String   @unique // S3 object key
-  mimeType     String
-  sizeBytes    Int
-  width        Int?
-  height       Int?
-  jobId        String?
-  disputeId    String?
-  messageId    String?
-  uploadedAt   DateTime? // null until client confirms the presigned PUT
-  createdAt    DateTime @default(now())
+  id          String          @id @default(cuid())
+  ownerId     String
+  kind        FileKind
+  sensitivity FileSensitivity
+  bucket      String
+  storageKey  String          @unique // S3 object key
+  mimeType    String
+  sizeBytes   Int
+  width       Int?
+  height      Int?
+  jobId       String?
+  disputeId   String?
+  messageId   String?
+  uploadedAt  DateTime? // null until client confirms the presigned PUT
+  createdAt   DateTime        @default(now())
 
   owner             User               @relation(fields: [ownerId], references: [id])
   job               JobRequest?        @relation(fields: [jobId], references: [id])
@@ -801,7 +800,7 @@ model AuditLog {
   id         String   @id @default(cuid())
   actorId    String?
   actorRole  Role?
-  action     String   // e.g. assignment.create, verification.pass, dispute.resolve
+  action     String // e.g. assignment.create, verification.pass, dispute.resolve
   entityType String
   entityId   String
   before     Json?

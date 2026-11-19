@@ -1,9 +1,11 @@
-import { HttpStatus, Injectable } from '@nestjs/common';
+import { HttpStatus, Inject, Injectable } from '@nestjs/common';
+import { ENV } from '../../config/config.module';
+import type { Env } from '../../config/env';
 import type { Prisma } from '@prisma/client';
 import {
   availableJobActions,
   isPrePayment,
-  lagosDateString,
+  marketDateString,
   maskPhone,
   type CreateJobInput,
   type JobActor,
@@ -49,15 +51,15 @@ export function toQuoteView(q: JobWithAll['quotes'][number], withSplit: boolean)
     status: q.status,
     reviewStatus: q.reviewStatus,
     reviewNote: q.reviewNote,
-    labourKobo: q.labourKobo,
-    materialsKobo: q.materialsKobo,
-    totalKobo: q.totalKobo,
+    labourCents: q.labourCents,
+    materialsCents: q.materialsCents,
+    totalCents: q.totalCents,
     items: q.items.map((i) => ({
       kind: i.kind,
       description: i.description,
       quantity: i.quantity,
-      unitPriceKobo: i.unitPriceKobo,
-      totalKobo: i.totalKobo,
+      unitPriceCents: i.unitPriceCents,
+      totalCents: i.totalCents,
     })),
     notes: q.notes,
     rejectionReason: q.rejectionReason,
@@ -65,12 +67,12 @@ export function toQuoteView(q: JobWithAll['quotes'][number], withSplit: boolean)
     ...(withSplit
       ? {
           split: {
-            commissionKobo: q.commissionKobo,
-            commissionFromMaterialsKobo: q.commissionFromMaterialsKobo,
-            artisanPayoutKobo: q.artisanPayoutKobo,
-            materialsAdvanceKobo: q.materialsAdvanceKobo,
-            completionPayoutKobo: q.completionPayoutKobo,
-            materialsAdvanceCapKobo: q.materialsAdvanceCapKobo,
+            commissionCents: q.commissionCents,
+            commissionFromMaterialsCents: q.commissionFromMaterialsCents,
+            artisanPayoutCents: q.artisanPayoutCents,
+            materialsAdvanceCents: q.materialsAdvanceCents,
+            completionPayoutCents: q.completionPayoutCents,
+            materialsAdvanceCapCents: q.materialsAdvanceCapCents,
           },
         }
       : {}),
@@ -85,6 +87,7 @@ export class JobsService {
     private readonly transitions: JobTransitionsService,
     private readonly files: FilesService,
     private readonly audit: AuditService,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   async create(
@@ -103,8 +106,11 @@ export class JobsService {
         'We are not in that area yet',
       );
 
-    const today = lagosDateString();
-    const latest = lagosDateString(new Date(Date.now() + MAX_DAYS_AHEAD * 86_400_000));
+    const today = marketDateString(new Date(), this.env.MARKET_TIMEZONE);
+    const latest = marketDateString(
+      new Date(Date.now() + MAX_DAYS_AHEAD * 86_400_000),
+      this.env.MARKET_TIMEZONE,
+    );
     if (input.preferredDate < today || input.preferredDate > latest) {
       throw new AppException(
         HttpStatus.BAD_REQUEST,
@@ -125,7 +131,8 @@ export class JobsService {
           areaId: area.id,
           description: input.description,
           addressLine: input.addressLine,
-          landmark: input.landmark ?? null,
+          postalCode: input.postalCode,
+          accessNotes: input.accessNotes ?? null,
           lat: input.lat ?? null,
           lng: input.lng ?? null,
           preferredDate: new Date(`${input.preferredDate}T00:00:00Z`),
@@ -233,7 +240,11 @@ export class JobsService {
         viewer.role === 'artisan' && viewer.assignmentStatus !== 'ACCEPTED'
           ? null
           : job.addressLine,
-      landmark: job.landmark,
+      postalCode: job.postalCode,
+      accessNotes:
+        viewer.role === 'artisan' && viewer.assignmentStatus !== 'ACCEPTED'
+          ? null
+          : job.accessNotes,
       preferredDate: job.preferredDate.toISOString().slice(0, 10),
       timeWindow: job.timeWindow,
       createdAt: job.createdAt.toISOString(),

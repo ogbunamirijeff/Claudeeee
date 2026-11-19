@@ -1,4 +1,4 @@
-import { formatNgPhone } from '@jiko/shared/phone';
+import { formatPhone } from '@jiko/shared/phone';
 import type { Metadata } from 'next';
 import { apiGet } from '@/lib/api';
 
@@ -34,11 +34,11 @@ export default async function UsersPage() {
             {users.items.map((u) => (
               <tr key={u.id}>
                 <td className="px-4 py-3">{u.name ?? '—'}</td>
-                <td className="px-4 py-3 tabular-nums">{formatNgPhone(u.phone)}</td>
+                <td className="px-4 py-3 tabular-nums">{formatPhone(u.phone)}</td>
                 <td className="px-4 py-3">{u.roles.map((r) => r.toLowerCase()).join(', ')}</td>
                 <td className="px-4 py-3">{u.status.toLowerCase()}</td>
                 <td className="px-4 py-3 tabular-nums">
-                  {new Date(u.createdAt).toLocaleDateString('en-NG')}
+                  {new Date(u.createdAt).toLocaleDateString('en-US')}
                 </td>
               </tr>
             ))}

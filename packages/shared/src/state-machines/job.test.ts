@@ -16,7 +16,7 @@ describe('job state machine', () => {
         'submitWork',
         'IN_PROGRESS',
         'ARTISAN',
-        { hasAfterPhoto: true, quoteMaterialsKobo: 5000, hasMaterialsReceipt: true },
+        { hasAfterPhoto: true, quoteMaterialsCents: 5000, hasMaterialsReceipt: true },
       ],
       ['confirmCompletion', 'WORK_SUBMITTED', 'CLIENT'],
     ];
@@ -94,13 +94,13 @@ describe('job state machine', () => {
     expect(
       checkJobTransition('submitWork', 'IN_PROGRESS', 'ARTISAN', {
         hasAfterPhoto: true,
-        quoteMaterialsKobo: 100,
+        quoteMaterialsCents: 100,
       }),
     ).toMatchObject({ ok: false, reason: expect.stringMatching(/receipt/) });
     expect(
       checkJobTransition('submitWork', 'IN_PROGRESS', 'ARTISAN', {
         hasAfterPhoto: true,
-        quoteMaterialsKobo: 0,
+        quoteMaterialsCents: 0,
       }).ok,
     ).toBe(true);
   });

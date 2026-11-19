@@ -1,5 +1,5 @@
 import type { RequestOtpResponse, VerifyOtpResponse } from '@jiko/shared';
-import { formatNgPhone, normalizeNgPhone } from '@jiko/shared/phone';
+import { formatPhone, normalizePhone } from '@jiko/shared/phone';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -39,8 +39,8 @@ export default function Login() {
 
   async function sendCode() {
     setError(null);
-    const n = normalizeNgPhone(phoneInput);
-    if (!n) return setError('Enter a valid Nigerian mobile number, e.g. 0803 123 4567');
+    const n = normalizePhone(phoneInput);
+    if (!n) return setError('Enter a valid US mobile number, e.g. (713) 555-0123');
     if (!accepted) return setError('Please accept the Terms and Privacy Policy to continue');
     setBusy(true);
     try {
@@ -85,7 +85,7 @@ export default function Login() {
               style={s.input}
               keyboardType="phone-pad"
               autoComplete="tel"
-              placeholder="0803 123 4567"
+              placeholder="(713) 555-0123"
               placeholderTextColor={colors.muted}
               value={phoneInput}
               onChangeText={setPhoneInput}
@@ -93,8 +93,9 @@ export default function Login() {
             <View style={s.consent}>
               <Switch value={accepted} onValueChange={setAccepted} />
               <Text style={s.consentText}>
-                I agree to Jiko&apos;s Terms and Privacy Policy, including how my data is used to
-                match me with artisans.
+                I agree to Jiko&apos;s Terms and Privacy Policy, and to receive account and job
+                texts from Jiko at this number. Msg &amp; data rates may apply. Reply STOP to opt
+                out.
               </Text>
             </View>
             {error && <Text style={s.error}>{error}</Text>}
@@ -103,7 +104,7 @@ export default function Login() {
         ) : (
           <>
             <Text style={s.h1}>Enter your code</Text>
-            <Text style={s.sub}>Sent to {formatNgPhone(phone)}.</Text>
+            <Text style={s.sub}>Sent to {formatPhone(phone)}.</Text>
             <TextInput
               style={[s.input, s.code]}
               keyboardType="number-pad"

@@ -11,14 +11,14 @@ describe('Database integrity rules', () => {
     const e = await prisma.ledgerEntry.create({
       data: {
         txnId: 't1',
-        debitAccount: 'PAYSTACK_INFLOW',
+        debitAccount: 'PAYMENT_INFLOW',
         creditAccount: 'ESCROW',
-        amountKobo: 1000,
+        amountCents: 1000,
         memo: 'test',
       },
     });
     await expect(
-      prisma.ledgerEntry.update({ where: { id: e.id }, data: { amountKobo: 1 } }),
+      prisma.ledgerEntry.update({ where: { id: e.id }, data: { amountCents: 1 } }),
     ).rejects.toThrow(/append-only/);
     await expect(prisma.ledgerEntry.delete({ where: { id: e.id } })).rejects.toThrow(/append-only/);
     await expect(prisma.$executeRawUnsafe('TRUNCATE ledger_entries')).rejects.toThrow(
@@ -33,7 +33,7 @@ describe('Database integrity rules', () => {
           txnId: 't2',
           debitAccount: 'ESCROW',
           creditAccount: 'ARTISAN_PAYABLE',
-          amountKobo: -5,
+          amountCents: -5,
           memo: 'x',
         },
       }),
@@ -44,7 +44,7 @@ describe('Database integrity rules', () => {
           txnId: 't3',
           debitAccount: 'ESCROW',
           creditAccount: 'ESCROW',
-          amountKobo: 5,
+          amountCents: 5,
           memo: 'x',
         },
       }),
@@ -61,9 +61,9 @@ describe('Database integrity rules', () => {
     await expect(prisma.auditLog.delete({ where: { id: a.id } })).rejects.toThrow(/append-only/);
   });
 
-  it('only stores canonical Nigerian phone numbers', async () => {
-    await expect(prisma.user.create({ data: { phone: '08031234567' } })).rejects.toThrow(
-      /users_phone_e164_ng/,
+  it('only stores canonical US phone numbers', async () => {
+    await expect(prisma.user.create({ data: { phone: '7135550123' } })).rejects.toThrow(
+      /users_phone_e164_us/,
     );
   });
 

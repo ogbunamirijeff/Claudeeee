@@ -8,7 +8,7 @@ CREATE TYPE "UserStatus" AS ENUM ('ACTIVE', 'SUSPENDED', 'DELETED');
 CREATE TYPE "SealStatus" AS ENUM ('NOT_STARTED', 'IN_PROGRESS', 'SEALED', 'SUSPENDED', 'REVOKED');
 
 -- CreateEnum
-CREATE TYPE "VerificationType" AS ENUM ('GOVERNMENT_ID', 'PHONE_ADDRESS', 'REFERENCES', 'SKILLS_TEST', 'GUARANTOR', 'BACKGROUND_CHECK');
+CREATE TYPE "VerificationType" AS ENUM ('GOVERNMENT_ID', 'STATE_LICENSE', 'INSURANCE', 'BACKGROUND_CHECK', 'REFERENCES', 'SKILLS_ASSESSMENT');
 
 -- CreateEnum
 CREATE TYPE "VerificationStatus" AS ENUM ('PENDING', 'PASSED', 'FAILED');
@@ -26,6 +26,9 @@ CREATE TYPE "AssignmentStatus" AS ENUM ('OFFERED', 'ACCEPTED', 'DECLINED', 'EXPI
 CREATE TYPE "QuoteStatus" AS ENUM ('SUBMITTED', 'APPROVED', 'REJECTED', 'SUPERSEDED');
 
 -- CreateEnum
+CREATE TYPE "QuoteReviewStatus" AS ENUM ('NOT_REQUIRED', 'PENDING', 'APPROVED', 'REJECTED');
+
+-- CreateEnum
 CREATE TYPE "QuoteItemKind" AS ENUM ('LABOUR', 'MATERIAL');
 
 -- CreateEnum
@@ -41,7 +44,7 @@ CREATE TYPE "ReleaseTrigger" AS ENUM ('MATERIALS_ADVANCE', 'CLIENT_CONFIRMED', '
 CREATE TYPE "RefundStatus" AS ENUM ('PENDING', 'PROCESSING', 'SUCCEEDED', 'FAILED');
 
 -- CreateEnum
-CREATE TYPE "LedgerAccount" AS ENUM ('PAYSTACK_INFLOW', 'ESCROW', 'ARTISAN_PAYABLE', 'ARTISAN_PAID_OUT', 'PLATFORM_COMMISSION', 'PAYSTACK_FEES', 'PLATFORM_LOSSES', 'CLIENT_REFUNDED');
+CREATE TYPE "LedgerAccount" AS ENUM ('PAYMENT_INFLOW', 'ESCROW', 'ARTISAN_PAYABLE', 'ARTISAN_PAID_OUT', 'PLATFORM_COMMISSION', 'PROCESSING_FEES', 'PLATFORM_LOSSES', 'CLIENT_REFUNDED');
 
 -- CreateEnum
 CREATE TYPE "DisputeKind" AS ENUM ('COMPLETION', 'WARRANTY');
@@ -65,7 +68,7 @@ CREATE TYPE "NotificationStatus" AS ENUM ('QUEUED', 'SENT', 'DELIVERED', 'FAILED
 CREATE TYPE "FileSensitivity" AS ENUM ('STANDARD', 'SENSITIVE');
 
 -- CreateEnum
-CREATE TYPE "FileKind" AS ENUM ('AVATAR', 'ID_DOCUMENT', 'VERIFICATION_EVIDENCE', 'JOB_PHOTO_BEFORE', 'JOB_PHOTO_AFTER', 'DISPUTE_EVIDENCE', 'MESSAGE_ATTACHMENT');
+CREATE TYPE "FileKind" AS ENUM ('AVATAR', 'ID_DOCUMENT', 'VERIFICATION_EVIDENCE', 'JOB_REQUEST_PHOTO', 'JOB_PHOTO_BEFORE', 'JOB_PHOTO_AFTER', 'MATERIALS_RECEIPT', 'DISPUTE_EVIDENCE', 'MESSAGE_ATTACHMENT');
 
 -- CreateTable
 CREATE TABLE "users" (
@@ -162,11 +165,8 @@ CREATE TABLE "artisan_profiles" (
     "isAvailable" BOOLEAN NOT NULL DEFAULT true,
     "sealStatus" "SealStatus" NOT NULL DEFAULT 'NOT_STARTED',
     "sealGrantedAt" TIMESTAMP(3),
-    "bankCode" TEXT,
-    "accountNumberEnc" TEXT,
-    "accountNumberLast4" TEXT,
-    "accountName" TEXT,
-    "paystackRecipientCode" TEXT,
+    "stripeAccountId" TEXT,
+    "payoutsEnabled" BOOLEAN NOT NULL DEFAULT false,
     "ratingAvg" DOUBLE PRECISION NOT NULL DEFAULT 0,
     "ratingCount" INTEGER NOT NULL DEFAULT 0,
     "jobsCompleted" INTEGER NOT NULL DEFAULT 0,
@@ -225,7 +225,8 @@ CREATE TABLE "job_requests" (
     "areaId" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "addressLine" TEXT NOT NULL,
-    "landmark" TEXT,
+    "postalCode" TEXT NOT NULL,
+    "accessNotes" TEXT,
     "lat" DOUBLE PRECISION,
     "lng" DOUBLE PRECISION,
     "preferredDate" DATE NOT NULL,
@@ -267,6 +268,7 @@ CREATE TABLE "assignments" (
     "offeredAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "expiresAt" TIMESTAMP(3),
     "respondedAt" TIMESTAMP(3),
+    "acceptedAt" TIMESTAMP(3),
     "declineReason" TEXT,
     "distanceKm" DOUBLE PRECISION,
     "matchSnapshot" JSONB,
@@ -282,12 +284,20 @@ CREATE TABLE "quotes" (
     "artisanId" TEXT NOT NULL,
     "version" INTEGER NOT NULL DEFAULT 1,
     "status" "QuoteStatus" NOT NULL DEFAULT 'SUBMITTED',
-    "labourKobo" INTEGER NOT NULL,
-    "materialsKobo" INTEGER NOT NULL,
-    "totalKobo" INTEGER NOT NULL,
+    "labourCents" INTEGER NOT NULL,
+    "materialsCents" INTEGER NOT NULL,
+    "totalCents" INTEGER NOT NULL,
     "commissionBps" INTEGER NOT NULL,
-    "commissionKobo" INTEGER NOT NULL,
-    "artisanPayoutKobo" INTEGER NOT NULL,
+    "commissionCents" INTEGER NOT NULL,
+    "commissionFromMaterialsCents" INTEGER NOT NULL DEFAULT 0,
+    "artisanPayoutCents" INTEGER NOT NULL,
+    "materialsAdvanceCapCents" INTEGER NOT NULL,
+    "materialsAdvanceCents" INTEGER NOT NULL,
+    "completionPayoutCents" INTEGER NOT NULL,
+    "reviewStatus" "QuoteReviewStatus" NOT NULL DEFAULT 'NOT_REQUIRED',
+    "reviewedById" TEXT,
+    "reviewedAt" TIMESTAMP(3),
+    "reviewNote" TEXT,
     "notes" TEXT,
     "submittedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "decidedAt" TIMESTAMP(3),
@@ -303,8 +313,8 @@ CREATE TABLE "quote_items" (
     "kind" "QuoteItemKind" NOT NULL,
     "description" TEXT NOT NULL,
     "quantity" INTEGER NOT NULL DEFAULT 1,
-    "unitPriceKobo" INTEGER NOT NULL,
-    "totalKobo" INTEGER NOT NULL,
+    "unitPriceCents" INTEGER NOT NULL,
+    "totalCents" INTEGER NOT NULL,
     "sortOrder" INTEGER NOT NULL DEFAULT 0,
 
     CONSTRAINT "quote_items_pkey" PRIMARY KEY ("id")
@@ -316,16 +326,16 @@ CREATE TABLE "payments" (
     "jobId" TEXT NOT NULL,
     "quoteId" TEXT NOT NULL,
     "clientId" TEXT NOT NULL,
-    "amountKobo" INTEGER NOT NULL,
-    "currency" TEXT NOT NULL DEFAULT 'NGN',
+    "amountCents" INTEGER NOT NULL,
+    "currency" TEXT NOT NULL DEFAULT 'USD',
     "status" "PaymentStatus" NOT NULL DEFAULT 'INITIALIZED',
-    "paystackReference" TEXT NOT NULL,
-    "accessCode" TEXT,
+    "reference" TEXT NOT NULL,
+    "stripePaymentIntentId" TEXT,
     "channel" TEXT,
-    "feesKobo" INTEGER,
+    "feesCents" INTEGER,
     "paidAt" TIMESTAMP(3),
-    "refundedKobo" INTEGER NOT NULL DEFAULT 0,
-    "releasedKobo" INTEGER NOT NULL DEFAULT 0,
+    "refundedCents" INTEGER NOT NULL DEFAULT 0,
+    "releasedCents" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -338,13 +348,13 @@ CREATE TABLE "payouts" (
     "jobId" TEXT NOT NULL,
     "paymentId" TEXT NOT NULL,
     "artisanId" TEXT NOT NULL,
-    "amountKobo" INTEGER NOT NULL,
+    "amountCents" INTEGER NOT NULL,
     "status" "PayoutStatus" NOT NULL DEFAULT 'PENDING',
     "trigger" "ReleaseTrigger" NOT NULL,
     "transferReference" TEXT NOT NULL,
-    "transferCode" TEXT,
-    "recipientCode" TEXT NOT NULL,
-    "feeKobo" INTEGER,
+    "stripeTransferId" TEXT,
+    "stripeAccountId" TEXT NOT NULL,
+    "feeCents" INTEGER,
     "failureReason" TEXT,
     "initiatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "completedAt" TIMESTAMP(3),
@@ -357,9 +367,9 @@ CREATE TABLE "refunds" (
     "id" TEXT NOT NULL,
     "paymentId" TEXT NOT NULL,
     "disputeId" TEXT,
-    "amountKobo" INTEGER NOT NULL,
+    "amountCents" INTEGER NOT NULL,
     "status" "RefundStatus" NOT NULL DEFAULT 'PENDING',
-    "paystackRefundId" TEXT,
+    "stripeRefundId" TEXT,
     "reason" TEXT,
     "includesMaterialsAdvance" BOOLEAN NOT NULL DEFAULT false,
     "overrideReason" TEXT,
@@ -376,7 +386,7 @@ CREATE TABLE "ledger_entries" (
     "txnId" TEXT NOT NULL,
     "debitAccount" "LedgerAccount" NOT NULL,
     "creditAccount" "LedgerAccount" NOT NULL,
-    "amountKobo" INTEGER NOT NULL,
+    "amountCents" INTEGER NOT NULL,
     "jobId" TEXT,
     "paymentId" TEXT,
     "payoutId" TEXT,
@@ -412,7 +422,7 @@ CREATE TABLE "disputes" (
     "description" TEXT NOT NULL,
     "status" "DisputeStatus" NOT NULL DEFAULT 'OPEN',
     "resolution" "DisputeResolution",
-    "refundKobo" INTEGER,
+    "refundCents" INTEGER,
     "resolutionNotes" TEXT,
     "resolvedById" TEXT,
     "resolvedAt" TIMESTAMP(3),
@@ -535,6 +545,9 @@ CREATE UNIQUE INDEX "service_areas_slug_key" ON "service_areas"("slug");
 CREATE UNIQUE INDEX "artisan_profiles_userId_key" ON "artisan_profiles"("userId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "artisan_profiles_stripeAccountId_key" ON "artisan_profiles"("stripeAccountId");
+
+-- CreateIndex
 CREATE INDEX "artisan_profiles_sealStatus_isAvailable_idx" ON "artisan_profiles"("sealStatus", "isAvailable");
 
 -- CreateIndex
@@ -562,13 +575,19 @@ CREATE INDEX "assignments_jobId_idx" ON "assignments"("jobId");
 CREATE INDEX "assignments_artisanId_status_idx" ON "assignments"("artisanId", "status");
 
 -- CreateIndex
+CREATE INDEX "quotes_reviewStatus_idx" ON "quotes"("reviewStatus");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "quotes_jobId_version_key" ON "quotes"("jobId", "version");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "payments_quoteId_key" ON "payments"("quoteId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "payments_paystackReference_key" ON "payments"("paystackReference");
+CREATE UNIQUE INDEX "payments_reference_key" ON "payments"("reference");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "payments_stripePaymentIntentId_key" ON "payments"("stripePaymentIntentId");
 
 -- CreateIndex
 CREATE INDEX "payments_status_idx" ON "payments"("status");
@@ -577,10 +596,13 @@ CREATE INDEX "payments_status_idx" ON "payments"("status");
 CREATE UNIQUE INDEX "payouts_transferReference_key" ON "payouts"("transferReference");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "payouts_stripeTransferId_key" ON "payouts"("stripeTransferId");
+
+-- CreateIndex
 CREATE INDEX "payouts_status_idx" ON "payouts"("status");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "refunds_paystackRefundId_key" ON "refunds"("paystackRefundId");
+CREATE UNIQUE INDEX "refunds_stripeRefundId_key" ON "refunds"("stripeRefundId");
 
 -- CreateIndex
 CREATE INDEX "ledger_entries_jobId_idx" ON "ledger_entries"("jobId");
@@ -689,6 +711,9 @@ ALTER TABLE "quotes" ADD CONSTRAINT "quotes_assignmentId_fkey" FOREIGN KEY ("ass
 
 -- AddForeignKey
 ALTER TABLE "quotes" ADD CONSTRAINT "quotes_artisanId_fkey" FOREIGN KEY ("artisanId") REFERENCES "artisan_profiles"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "quotes" ADD CONSTRAINT "quotes_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "quote_items" ADD CONSTRAINT "quote_items_quoteId_fkey" FOREIGN KEY ("quoteId") REFERENCES "quotes"("id") ON DELETE CASCADE ON UPDATE CASCADE;

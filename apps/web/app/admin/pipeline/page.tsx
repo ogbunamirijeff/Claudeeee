@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { formatKobo } from '@jiko/shared/money';
+import { formatCents } from '@jiko/shared/money';
 import { apiGet } from '@/lib/api';
 import { JOB_STATUS_LABEL, since } from '@/lib/labels';
 import type { AdminJobRow } from '../types';
@@ -60,9 +60,9 @@ export default async function PipelinePage() {
                       {j.offerStatus === 'OFFERED' ? ' (offered)' : ''}
                     </p>
                   )}
-                  {j.quoteTotalKobo !== null && (
+                  {j.quoteTotalCents !== null && (
                     <p className="text-xs tabular-nums">
-                      {formatKobo(j.quoteTotalKobo)}
+                      {formatCents(j.quoteTotalCents)}
                       {j.quoteReviewStatus === 'PENDING' ? ' · review' : ''}
                     </p>
                   )}

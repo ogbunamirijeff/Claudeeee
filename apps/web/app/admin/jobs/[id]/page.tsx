@@ -1,3 +1,4 @@
+import { formatPhone } from '@jiko/shared/phone';
 import type { CandidateView, JobView } from '@jiko/shared';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
@@ -40,11 +41,12 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
           <p>{job.description}</p>
           <p className="text-muted">
             {job.addressLine}
-            {job.landmark ? ` · ${job.landmark}` : ''}
+            {`, ${job.postalCode}`}
+            {job.accessNotes ? ` · ${job.accessNotes}` : ''}
           </p>
           <p className="text-muted">
             {formatDay(job.preferredDate)}, {TIME_WINDOW[job.timeWindow]} · Client:{' '}
-            {job.client.name ?? '—'} ({job.client.phone})
+            {job.client.name ?? '—'} · {formatPhone(job.client.phone)}
           </p>
           {job.photos.length > 0 && (
             <div className="flex flex-wrap gap-2 pt-1">
@@ -70,8 +72,8 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
                 <Badge tone="warning">
                   Offered · expires{' '}
                   {job.offer.expiresAt
-                    ? new Date(job.offer.expiresAt).toLocaleTimeString('en-NG', {
-                        timeZone: 'Africa/Lagos',
+                    ? new Date(job.offer.expiresAt).toLocaleTimeString('en-US', {
+                        timeZone: 'America/Chicago',
                         timeStyle: 'short',
                       })
                     : '—'}
@@ -79,7 +81,7 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
               )}
             </p>
             <p className="text-muted">
-              {job.artisan.phone} · ★ {job.artisan.ratingAvg.toFixed(1)} ·{' '}
+              {formatPhone(job.artisan.phone)} · ★ {job.artisan.ratingAvg.toFixed(1)} ·{' '}
               {job.artisan.jobsCompleted} jobs
             </p>
           </Card>
@@ -91,8 +93,8 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
           <ol className="mt-2 space-y-1">
             {job.timeline.map((t, i) => (
               <li key={i} className="text-muted">
-                {new Date(t.at).toLocaleString('en-NG', {
-                  timeZone: 'Africa/Lagos',
+                {new Date(t.at).toLocaleString('en-US', {
+                  timeZone: 'America/Chicago',
                   dateStyle: 'medium',
                   timeStyle: 'short',
                 })}{' '}

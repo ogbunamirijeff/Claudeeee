@@ -10,7 +10,7 @@ export const JOB_STATUS_LABEL: Record<string, string> = {
   COMPLETED: 'Completed',
   DISPUTED: 'In dispute',
   REFUNDED: 'Refunded',
-  CANCELLED: 'Cancelled',
+  CANCELLED: 'Canceled',
   OFFERED: 'New offer',
 };
 
@@ -38,11 +38,11 @@ export const TIME_WINDOW: Record<string, string> = {
 };
 
 export function formatDay(isoDate: string): string {
-  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString('en-NG', {
+  return new Date(`${isoDate}T12:00:00Z`).toLocaleDateString('en-US', {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-    timeZone: 'Africa/Lagos',
+    timeZone: 'America/Chicago',
   });
 }
 

@@ -3,7 +3,7 @@
  * trades, service areas and the first admin user. Idempotent.
  */
 import { PrismaClient } from '@prisma/client';
-import { normalizeNgPhone } from '@jiko/shared';
+import { normalizePhone } from '@jiko/shared';
 import { AREAS, TRADES } from './data';
 
 export async function seedReference(prisma: PrismaClient) {
@@ -18,8 +18,8 @@ export async function seedReference(prisma: PrismaClient) {
     await prisma.serviceArea.upsert({ where: { slug: a.slug }, create: a, update: a });
   }
 
-  const phone = normalizeNgPhone(process.env.SEED_ADMIN_PHONE ?? '+2348000000001');
-  if (!phone) throw new Error('SEED_ADMIN_PHONE is not a valid Nigerian mobile number');
+  const phone = normalizePhone(process.env.SEED_ADMIN_PHONE ?? '+17135550100');
+  if (!phone) throw new Error('SEED_ADMIN_PHONE is not a valid US phone number');
   const admin = await prisma.user.upsert({
     where: { phone },
     create: { phone, name: process.env.SEED_ADMIN_NAME ?? 'Jiko Ops', roles: ['CLIENT', 'ADMIN'] },

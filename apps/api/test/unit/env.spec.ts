@@ -25,7 +25,9 @@ describe('loadEnv', () => {
     expect(() => loadEnv({ ...valid, NODE_ENV: 'production' })).toThrow(/SMS_PROVIDER/);
   });
 
-  it('requires a Termii key when Termii is selected', () => {
-    expect(() => loadEnv({ ...valid, SMS_PROVIDER: 'termii' })).toThrow(/TERMII_API_KEY/);
+  it('requires Twilio credentials and a sender when Twilio is selected', () => {
+    expect(() => loadEnv({ ...valid, SMS_PROVIDER: 'twilio' })).toThrow(
+      /TWILIO_ACCOUNT_SID[\s\S]*TWILIO_MESSAGING_SERVICE_SID/,
+    );
   });
 });

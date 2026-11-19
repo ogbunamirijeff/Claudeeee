@@ -9,16 +9,18 @@ const PATTERNS: RegExp[] = [
   // Emails
   /[A-Z0-9._%+-]+\s*(?:@|\(at\)|\[at\])\s*[A-Z0-9.-]+\s*(?:\.|\(dot\)|\[dot\])\s*[A-Z]{2,}/gi,
   // Any run of 7+ digits, allowing spaces, dashes, dots, brackets and a leading + (phones, bank accounts)
-  /\+?\d(?:[\s\-.()]*\d){6,}/g,
+  /\(?\+?\d(?:[\s\-.()]*\d){6,}/g,
   // Numbers spelled out: "zero eight zero three one two three…"
   /\b(?:(?:zero|oh|one|two|three|four|five|six|seven|eight|nine)\b[\s,.-]*){6,}/gi,
   // Social handles
   /(?:^|\s)@[A-Za-z0-9_.]{3,}/g,
-  /\b(?:wa\.me|t\.me|instagram\.com|facebook\.com|fb\.me)\/\S+/gi,
+  /\b(?:wa\.me|t\.me|instagram\.com|facebook\.com|fb\.me|venmo\.com|cash\.app)\/\S+/gi,
+  // Cash App $cashtags (prices like $250 start with a digit and are left alone)
+  /\$[A-Za-z][A-Za-z0-9_]{2,}/g,
 ];
 
 const SOLICIT =
-  /\b(?:whats\s?app|watsapp|wa\b|call me|text me|my (?:number|line|account)|pay (?:me )?(?:directly|cash|outside)|bank transfer|send (?:me )?(?:your|ur) (?:number|digits))\b/i;
+  /\b(?:whats\s?app|text me|call me|my (?:number|cell|line|account)|venmo|zelle|cash\s?app|paypal|pay (?:me )?(?:directly|cash|outside|off the app)|routing number|send (?:me )?(?:your|ur) (?:number|digits))\b/i;
 
 export interface MaskResult {
   text: string;
