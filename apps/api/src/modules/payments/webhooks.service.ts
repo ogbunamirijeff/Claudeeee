@@ -1,4 +1,5 @@
 import { HttpStatus, Inject, Injectable, Logger } from '@nestjs/common';
+import type { Prisma } from '@prisma/client';
 import Stripe from 'stripe';
 import { ENV } from '../../config/config.module';
 import type { Env } from '../../config/env';
@@ -67,7 +68,7 @@ export class WebhooksService {
             provider: 'stripe',
             eventKey: event.id,
             eventType: event.type,
-            payload: event,
+            payload: JSON.parse(rawBody!.toString('utf8')) as Prisma.InputJsonObject, // exactly what Stripe sent
           },
         })
         .catch(() => undefined); // a concurrent delivery inserted it first; processing below is idempotent
