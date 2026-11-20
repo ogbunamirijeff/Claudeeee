@@ -483,7 +483,7 @@ model Assignment {
   acceptedAt    DateTime? // kept even if the assignment is later withdrawn (acceptance-rate metric)
   declineReason String?
   // Snapshot of signals at assignment time → training data for weighted matching
-  distanceMiles    Float?
+  distanceMiles Float?
   matchSnapshot Json? // { rating, completionRate, avgResponseSeconds, jobsCompleted, areaMatch, ... }
 
   job        JobRequest     @relation(fields: [jobId], references: [id], onDelete: Cascade)
@@ -530,7 +530,7 @@ model Quote {
   artisan    ArtisanProfile @relation(fields: [artisanId], references: [id])
   reviewedBy User?          @relation("QuoteReviewer", fields: [reviewedById], references: [id])
   items      QuoteItem[]
-  payment    Payment?
+  payments   Payment[] // retries after an abandoned checkout create new rows
 
   @@unique([jobId, version])
   @@index([reviewStatus])
@@ -557,13 +557,14 @@ model QuoteItem {
 model Payment {
   id                    String        @id @default(cuid())
   jobId                 String
-  quoteId               String        @unique
+  quoteId               String
   clientId              String
   amountCents           Int
   currency              String        @default("USD")
   status                PaymentStatus @default(INITIALIZED)
   reference             String        @unique // our idempotency key for the PaymentIntent
   stripePaymentIntentId String?       @unique
+  checkoutSessionId     String?       @unique // Stripe Checkout Session (hosted payment page)
   channel               String? // card | bank_transfer | ussd ...
   feesCents             Int? // Stripe processing fee (balance transaction)
   paidAt                DateTime?
@@ -581,6 +582,7 @@ model Payment {
   ledger  LedgerEntry[]
 
   @@index([status])
+  @@index([quoteId])
   @@map("payments")
 }
 
@@ -594,7 +596,8 @@ model Payout {
   trigger           ReleaseTrigger
   transferReference String         @unique // idempotency key sent to Stripe
   stripeTransferId  String?        @unique
-  stripeAccountId   String // destination Express account
+  stripeAccountId   String? // destination Express account; null until the pro finishes payout setup
+  attempts          Int            @default(0)
   feeCents          Int? // payout fee, absorbed by Jiko
   failureReason     String?
   initiatedAt       DateTime       @default(now())

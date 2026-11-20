@@ -33,6 +33,11 @@ const jobInclude = {
     where: { status: { in: ['OFFERED', 'ACCEPTED'] } },
     include: { artisan: { include: { user: { select: { phone: true, name: true } } } } },
   },
+  payments: {
+    where: { status: { notIn: ['FAILED', 'ABANDONED'] } },
+    orderBy: { createdAt: 'desc' },
+    take: 1,
+  },
   quotes: {
     where: { status: { not: 'SUPERSEDED' } },
     orderBy: { version: 'desc' },
@@ -278,6 +283,26 @@ export class JobsService {
           : null,
       quote: quote ? toQuoteView(quote, viewer.role !== 'client') : null,
       actions: availableJobActions(job.status, actor),
+      payment:
+        viewer.role !== 'artisan' && job.payments[0]
+          ? {
+              id: job.payments[0].id,
+              status: job.payments[0].status,
+              amountCents: job.payments[0].amountCents,
+              paidAt: job.payments[0].paidAt?.toISOString() ?? null,
+            }
+          : null,
+      canPay:
+        viewer.role === 'client' &&
+        job.status === 'AWAITING_PAYMENT' &&
+        quote?.status === 'APPROVED' &&
+        (quote.reviewStatus === 'NOT_REQUIRED' || quote.reviewStatus === 'APPROVED') &&
+        (!job.payments[0] || job.payments[0].status === 'INITIALIZED'),
+      startedAt: job.startedAt?.toISOString() ?? null,
+      workSubmittedAt: job.workSubmittedAt?.toISOString() ?? null,
+      autoReleaseAt: job.autoReleaseAt?.toISOString() ?? null,
+      completedAt: job.completedAt?.toISOString() ?? null,
+      guaranteeExpiresAt: job.guaranteeExpiresAt?.toISOString() ?? null,
       timeline: job.statusEvents.map((e) => ({
         to: e.to,
         at: e.createdAt.toISOString(),

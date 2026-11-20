@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { HealthModule } from './modules/health/health.module';
 import { JobsModule } from './modules/jobs/jobs.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 import { StorageModule } from './modules/storage/storage.module';
 import { SmsModule } from './modules/sms/sms.module';
 import { UsersModule } from './modules/users/users.module';
@@ -28,6 +29,7 @@ import { PrismaModule } from './prisma/prisma.module';
     CatalogModule,
     AdminModule,
     JobsModule,
+    PaymentsModule,
     HealthModule,
   ],
   providers: [

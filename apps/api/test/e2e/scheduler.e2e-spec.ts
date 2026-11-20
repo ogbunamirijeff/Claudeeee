@@ -12,7 +12,7 @@ import {
 /** Runs the real BullMQ job scheduler against Redis (REDIS_URL, default localhost:6379). */
 const prefix = `jiko-test-${Date.now()}`;
 
-describe('Offer expiry scheduler (BullMQ)', () => {
+describe('Maintenance scheduler (BullMQ)', () => {
   let h: Harness;
   beforeAll(
     async () =>
@@ -25,7 +25,7 @@ describe('Offer expiry scheduler (BullMQ)', () => {
   );
   afterAll(async () => {
     await h.close();
-    const q = new Queue('offer-expiry', {
+    const q = new Queue('maintenance', {
       connection: { url: process.env.REDIS_URL ?? 'redis://localhost:6379' },
       prefix,
     });

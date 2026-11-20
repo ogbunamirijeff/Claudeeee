@@ -43,8 +43,16 @@ export const EnvSchema = z
     TWILIO_FROM_NUMBER: z.string().optional(),
 
     // Payments (Phase 3): Stripe Connect, separate charges and transfers.
+    /** "fake" simulates Stripe for dev/tests (refused in production). */
+    PAYMENTS_PROVIDER: z.enum(['stripe', 'fake']).default('fake'),
     STRIPE_SECRET_KEY: z.string().optional(),
-    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    /** Signing secret for /v1/webhooks/stripe. The fake provider signs with it the same way Stripe does. */
+    STRIPE_WEBHOOK_SECRET: z.string().min(16).default('whsec_dev_only_not_for_production'),
+    /** Public web origin, used for Checkout success/cancel and Connect onboarding return URLs. */
+    WEB_URL: z.string().url().default('http://localhost:3000'),
+    AUTO_RELEASE_HOURS: z.coerce.number().int().min(1).default(48),
+    GUARANTEE_DAYS: z.coerce.number().int().min(0).default(7),
+    MAX_PAYOUT_ATTEMPTS: z.coerce.number().int().min(1).default(5),
 
     // Market
     MARKET_TIMEZONE: z.string().default('America/Chicago'), // Houston
@@ -92,6 +100,27 @@ export const EnvSchema = z
           message: 'Set TWILIO_MESSAGING_SERVICE_SID or TWILIO_FROM_NUMBER',
         });
       }
+    }
+    if (env.PAYMENTS_PROVIDER === 'stripe' && !env.STRIPE_SECRET_KEY) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['STRIPE_SECRET_KEY'],
+        message: 'required when PAYMENTS_PROVIDER=stripe',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.PAYMENTS_PROVIDER === 'fake') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['PAYMENTS_PROVIDER'],
+        message: 'fake payments are not allowed in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.STRIPE_WEBHOOK_SECRET.startsWith('whsec_dev_only')) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['STRIPE_WEBHOOK_SECRET'],
+        message: 'set the real webhook signing secret in production',
+      });
     }
     if (env.NODE_ENV === 'production' && env.STORAGE_DRIVER === 'local') {
       ctx.addIssue({

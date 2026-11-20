@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { AdminJobsController } from '../admin/admin-jobs.controller';
 import { ArtisanController } from '../artisan/artisan.controller';
 import { AssignmentsService } from '../assignments/assignments.service';
-import { OfferExpiryScheduler } from '../assignments/offer-expiry.scheduler';
 import { FilesController } from '../files/files.controller';
 import { FilesService } from '../files/files.service';
 import { MessagesController } from '../messages/messages.controller';
@@ -29,7 +28,6 @@ import { JobsService } from './jobs.service';
     JobAccessService,
     JobTransitionsService,
     AssignmentsService,
-    OfferExpiryScheduler,
     QuotesService,
     FilesService,
     MessagesService,

@@ -10,3 +10,4 @@ export * from './state-machines/job';
 export * from './working-hours';
 export * from './contact-masking';
 export * from './schemas/views';
+export * from './state-machines/escrow';

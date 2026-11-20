@@ -78,6 +78,15 @@ export interface JobView {
   offer: { assignmentId: string; status: string; expiresAt: string | null } | null;
   quote: QuoteView | null;
   actions: JobAction[];
+  /** Live payment for the job (client and admin only). */
+  payment: { id: string; status: string; amountCents: number; paidAt: string | null } | null;
+  /** True when the client can pay now (quote approved and, if required, price-checked by Jiko). */
+  canPay: boolean;
+  startedAt: string | null;
+  workSubmittedAt: string | null;
+  autoReleaseAt: string | null;
+  completedAt: string | null;
+  guaranteeExpiresAt: string | null;
   timeline: { to: string; at: string; note: string | null }[];
 }
 

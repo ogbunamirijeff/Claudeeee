@@ -46,7 +46,7 @@ export async function createHarness(
     .overrideProvider(ENV)
     .useValue(loadEnv({ ...process.env, ...envOverrides }))
     .compile();
-  const app = moduleRef.createNestApplication({ bodyParser: false });
+  const app = moduleRef.createNestApplication({ bodyParser: false, rawBody: true });
   configureApp(app);
   await app.init();
   return {
@@ -58,19 +58,27 @@ export async function createHarness(
   };
 }
 
-// Random exchange (2xx–9xx, never x11) per test file + a counter: valid, unique US numbers.
-const exchange = (() => {
+const used = new Set<string>();
+const digits = (n: number) => String(Math.floor(Math.random() * 10 ** n)).padStart(n, '0');
+/** NANP part that starts 2–9 and is never an N11 service code. */
+const nxx = (): string => {
   for (;;) {
-    const x = 200 + Math.floor(Math.random() * 800);
-    if (x % 100 !== 11) return String(x);
+    const v = `${2 + Math.floor(Math.random() * 8)}${digits(2)}`;
+    if (v.slice(1) !== '11') return v;
   }
-})();
-let counter = 0;
-/** Unique valid US number per call, so tests don't collide on rate limits. */
+};
+/**
+ * Random valid US number (~6 billion combinations), unique within the run. The test database
+ * keeps users across runs, so fixed or counter-based numbers would eventually collide.
+ */
 export function uniquePhone(): string {
-  counter += 1;
-  if (counter > 9999) throw new Error('uniquePhone exhausted for this file');
-  return `+1346${exchange}${String(counter).padStart(4, '0')}`;
+  for (;;) {
+    const p = `+1${nxx()}${nxx()}${digits(4)}`;
+    if (!used.has(p)) {
+      used.add(p);
+      return p;
+    }
+  }
 }
 
 export async function login(h: Harness, phone: string) {

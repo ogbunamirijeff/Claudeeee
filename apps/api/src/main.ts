@@ -8,7 +8,10 @@ import { ENV } from './config/config.module';
 import type { Env } from './config/env';
 
 async function main() {
-  const app = await NestFactory.create<NestExpressApplication>(AppModule, { bodyParser: false });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    bodyParser: false,
+    rawBody: true,
+  });
   configureApp(app);
   const env = app.get<Env>(ENV);
   await app.listen(env.PORT, '0.0.0.0');
