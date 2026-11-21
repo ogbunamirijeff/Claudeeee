@@ -8,7 +8,7 @@ Pilot: ~30 pros and ~100 jobs in **Houston, TX** (Houston Heights, Midtown, Katy
 | ----- | ----------------------------------------------------------------------------- | -------------------------- |
 | 1     | Monorepo, DB schema, phone + OTP auth, roles, audit log                       | ✅ done                    |
 | 2     | Job request → admin assignment → quote → approval                             | ✅ done (API, web, mobile) |
-| 3     | Stripe Connect payment, held funds, materials advance, release/refund, ledger | —                          |
+| 3     | Stripe Connect payment, held funds, materials advance, release/refund, ledger | ✅ done (API, web, mobile) |
 | 4     | Pro onboarding + Craft Seal verification                                      | —                          |
 | 5     | Reviews, disputes, notifications (SMS/push)                                   | —                          |
 | 6     | Admin metrics, marketing site, deploy                                         | —                          |
@@ -120,6 +120,14 @@ All routes are under `/v1` except `/health`. Errors share one shape: `{ statusCo
 | GET/POST  | `/admin/jobs/:id/candidates`, `/assign`, `/withdraw`                     | admin                 | Ranked candidates; audited                                                                                                          |
 | GET/POST  | `/admin/quotes/pending-review`, `/admin/quotes/:id/review`               | admin                 | Materials-heavy quotes; audited                                                                                                     |
 | GET/PATCH | `/admin/users`, `/admin/users/:id/roles`, `/status`, `/admin/audit-logs` | admin                 | Audited                                                                                                                             |
+| POST      | `/jobs/:id/checkout`                                                     | client                | Stripe Checkout session for the approved quote → `{ url }`                                                                          |
+| POST      | `/jobs/:id/start`                                                        | pro                   | Needs a before-photo; sends the materials advance                                                                                   |
+| POST      | `/jobs/:id/submit-work`                                                  | pro                   | Needs after-photo(s) and, with materials, a receipt photo; auto-release in 48 h                                                     |
+| POST      | `/jobs/:id/confirm`                                                      | client                | Releases the rest to the pro, starts the 7-day guarantee                                                                            |
+| GET/POST  | `/artisan/payouts`, `/artisan/payouts/onboarding`                        | pro                   | Payout history; Stripe Connect Express onboarding link                                                                              |
+| POST      | `/admin/jobs/:id/refund`                                                 | admin                 | Refunds what is still held (optionally the advance, from Jiko's funds); audited                                                     |
+| GET       | `/admin/payments`, `/admin/jobs/:id/ledger`                              | admin                 | Totals derived from the ledger                                                                                                      |
+| POST      | `/webhooks/stripe`                                                       | public (signed)       | Signature-verified, idempotent on the event id                                                                                      |
 
 ### Auth design
 
@@ -145,9 +153,36 @@ CHECKs on all money (non-negative integer cents, quote totals and split sum to t
 - **Craft Seal (US)**: government ID, state trade license (Texas: TSBPE for plumbing, TDLR for electrical and HVAC), general liability insurance, FCRA-compliant background check, two references, skills assessment.
 - **Guarantee**: 7-day redo on platform-paid jobs.
 
+## Payments (Phase 3)
+
+Stripe Connect, **separate charges and transfers**: the client pays Jiko through Stripe Checkout; Jiko transfers to the pro's Express account in two parts.
+
+1. **Paid** — `checkout.session.completed` books `PAYMENT_INFLOW → ESCROW` and the Stripe fee (`PROCESSING_FEES`). Amount and currency must match the quote; a payment arriving after the job was cancelled is refunded automatically.
+2. **Start** (before-photo) — the materials advance (≤ $500) moves `ESCROW → ARTISAN_PAYABLE` and is transferred.
+3. **Submit** (after-photo + receipt) — the client has 48 h to confirm; otherwise funds release automatically.
+4. **Confirm** — commission to `PLATFORM_COMMISSION`, the rest to the pro; escrow must end at exactly $0.
+5. **Refund** (admin, before completion) — returns what is still held; refund failures reverse the entry.
+
+Payouts wait (`PENDING`) until the pro finishes Stripe onboarding, then send automatically; failures retry up to `MAX_PAYOUT_ATTEMPTS`. A maintenance queue (BullMQ) expires offers, auto-releases and retries payouts every `OFFER_SWEEP_INTERVAL_MS`. `Payment.releasedCents`/`refundedCents` are caches written in the same transaction as the ledger; a test checks they always equal ledger-derived values.
+
+**Local development** uses `PAYMENTS_PROVIDER=fake`: Checkout and Connect onboarding open stand-in pages at `/dev/checkout` and `/dev/payouts` on the web app, which emit the same signed webhook events through the real handler. They return 404 with the Stripe provider or in production.
+
+**With real Stripe (test mode)**:
+
+```bash
+# apps/api/.env
+PAYMENTS_PROVIDER=stripe
+STRIPE_SECRET_KEY=sk_test_...
+# Forward webhooks locally and copy the printed whsec_... into STRIPE_WEBHOOK_SECRET
+stripe listen --forward-to localhost:4000/v1/webhooks/stripe \
+  --events checkout.session.completed,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,checkout.session.expired,account.updated,transfer.reversed,refund.updated,refund.failed
+```
+
+In production, add the same events as a webhook endpoint in the Stripe Dashboard (include **Connected accounts** events for `account.updated`).
+
 ## Deploy (outline; finalised in Phase 6)
 
-- **API → Railway or Render**: build `pnpm install --frozen-lockfile && pnpm --filter @jiko/api... build`; release `pnpm --filter @jiko/api db:deploy`; start `node apps/api/dist/main.js`. Set `TRUST_PROXY=true`, `SMS_PROVIDER=twilio`, `STORAGE_DRIVER=s3`, fresh secrets, managed Postgres + Redis.
+- **API → Railway or Render**: build `pnpm install --frozen-lockfile && pnpm --filter @jiko/api... build`; release `pnpm --filter @jiko/api db:deploy`; start `node apps/api/dist/main.js`. Set `TRUST_PROXY=true`, `SMS_PROVIDER=twilio`, `STORAGE_DRIVER=s3`, `PAYMENTS_PROVIDER=stripe` with live keys, `WEB_URL`, fresh secrets, managed Postgres + Redis.
 - **Web → Vercel**: root directory `apps/web`; set `API_URL`.
 - **Mobile → EAS Build**: set `EXPO_PUBLIC_API_URL` per build profile.
 - **Before launch — carrier & payment onboarding (allow 2–4 weeks)**:
