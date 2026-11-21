@@ -1,17 +1,12 @@
 import { type NextRequest, NextResponse } from 'next/server';
 import { forbidden, isSameOrigin } from '@/lib/bff';
 import { refreshTokens } from '@/lib/refresh';
-import {
-  ACCESS_COOKIE,
-  REFRESH_COOKIE,
-  apiUrl,
-  clearSessionCookies,
-  setSessionCookies,
-} from '@/lib/session';
+import { ACCESS_COOKIE, REFRESH_COOKIE, apiUrl, setSessionCookies } from '@/lib/session';
 
 /**
- * Same-origin proxy for authenticated API calls from the browser. The access token lives in an
- * httpOnly cookie, so page scripts never see it; this handler attaches it server-side.
+ * Same-origin proxy for API calls from the browser. The access token lives in an httpOnly
+ * cookie, so page scripts never see it; this handler attaches it server-side. Without a session
+ * the call is forwarded anonymously and the API decides (public routes work, others return 401).
  */
 async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }> }) {
   if (req.method !== 'GET' && !isSameOrigin(req)) return forbidden();
@@ -23,15 +18,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
   if (!access) {
     const rt = req.cookies.get(REFRESH_COOKIE)?.value;
     rotated = rt ? await refreshTokens(rt) : null;
-    if (!rotated) {
-      const res = NextResponse.json(
-        { statusCode: 401, code: 'UNAUTHENTICATED', message: 'Sign in to continue' },
-        { status: 401 },
-      );
-      clearSessionCookies(res);
-      return res;
-    }
-    access = rotated.accessToken;
+    access = rotated?.accessToken;
   }
 
   const upstream = await fetch(
@@ -39,7 +26,7 @@ async function proxy(req: NextRequest, ctx: { params: Promise<{ path: string[] }
     {
       method: req.method,
       headers: {
-        authorization: `Bearer ${access}`,
+        ...(access ? { authorization: `Bearer ${access}` } : {}),
         'content-type': 'application/json',
         'x-forwarded-for': req.headers.get('x-forwarded-for') ?? '',
         'user-agent': req.headers.get('user-agent') ?? '',

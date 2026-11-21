@@ -1,11 +1,13 @@
 import type { JobView } from '@jiko/shared';
 import { formatCents } from '@jiko/shared/money';
+import { formatPhone } from '@jiko/shared/phone';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Image,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -13,9 +15,20 @@ import {
 } from 'react-native';
 import { Chat } from '../../../components/Chat';
 import { QuoteCard } from '../../../components/QuoteCard';
-import { Badge, Banner, Button, Card, Chip, Field, Screen, s } from '../../../components/ui';
+import {
+  Badge,
+  Banner,
+  Button,
+  Card,
+  Chip,
+  confirmDialog,
+  Field,
+  Screen,
+  s,
+} from '../../../components/ui';
 import { authed, errorText, post } from '../../../lib/api';
 import { formatDay, formatTime, STATUS_LABEL, STATUS_TONE, TIME_WINDOW } from '../../../lib/labels';
+import { pickPhoto, uploadPhoto } from '../../../lib/upload';
 import { colors } from '../../../lib/theme';
 
 const DECLINE_REASONS = ['Fully booked that day', 'Too far from me', 'Not my specialty'];
@@ -57,6 +70,42 @@ export default function JobScreen() {
     }
   }
 
+  async function payNow() {
+    setBusy(true);
+    setError(null);
+    try {
+      const { url } = await post<{ url: string }>(`/v1/jobs/${id}/checkout`);
+      await WebBrowser.openBrowserAsync(url);
+      // Back from Checkout: the webhook usually lands within seconds.
+      for (let i = 0; i < 6; i++) {
+        const fresh = await authed<JobView>(`/v1/jobs/${id}`);
+        setJob(fresh);
+        if (fresh.status !== 'AWAITING_PAYMENT') break;
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function addSitePhoto(kind: 'JOB_PHOTO_BEFORE' | 'JOB_PHOTO_AFTER' | 'MATERIALS_RECEIPT') {
+    setError(null);
+    try {
+      // On a phone the pro photographs the site; the web build (tests) uses the file picker.
+      const picked = await pickPhoto(Platform.OS === 'web' ? 'library' : 'camera');
+      if (!picked) return;
+      setBusy(true);
+      await uploadPhoto(picked, kind, id);
+      await load();
+    } catch (e) {
+      setError(errorText(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (!job) {
     return (
       <Screen title="Job">
@@ -80,8 +129,86 @@ export default function JobScreen() {
     (pro ? job.offer?.status === 'ACCEPTED' : !!job.artisan) &&
     !['CANCELLED', 'REFUNDED'].includes(job.status);
 
+  const count = (kind: string) => job.photos.filter((p) => p.kind === kind).length;
+  const needsReceipt = (q?.materialsCents ?? 0) > 0;
+  const proAccepted = pro && job.offer?.status === 'ACCEPTED';
+  const until = (iso: string | null) =>
+    iso ? `${formatDay(iso.slice(0, 10))} ${formatTime(iso)}` : '';
+
   let footer = null;
-  if (offerOpen) {
+  if (!pro && job.canPay && q) {
+    footer = (
+      <Button
+        label={`Pay ${formatCents(q.totalCents)}`}
+        busy={busy}
+        onPress={() => void payNow()}
+      />
+    );
+  } else if (!pro && can('confirmCompletion')) {
+    footer = (
+      <Button
+        label="Confirm job is done"
+        busy={busy}
+        onPress={() =>
+          confirmDialog(
+            'Confirm the job is done?',
+            'Your pro gets paid and the 7-day redo guarantee starts.',
+            [
+              { text: 'Not yet', style: 'cancel' },
+              { text: 'Confirm', onPress: () => void act(`/v1/jobs/${job.id}/confirm`) },
+            ],
+          )
+        }
+      />
+    );
+  } else if (proAccepted && job.status === 'PAID') {
+    footer =
+      count('JOB_PHOTO_BEFORE') === 0 ? (
+        <Button
+          label="Take before-photo"
+          busy={busy}
+          onPress={() => void addSitePhoto('JOB_PHOTO_BEFORE')}
+        />
+      ) : (
+        <Button
+          label="Start job"
+          busy={busy}
+          onPress={() => void act(`/v1/jobs/${job.id}/start`)}
+        />
+      );
+  } else if (proAccepted && job.status === 'IN_PROGRESS') {
+    const ready = count('JOB_PHOTO_AFTER') > 0 && (!needsReceipt || count('MATERIALS_RECEIPT') > 0);
+    footer = (
+      <>
+        <View style={s.row}>
+          <View style={{ flex: 1 }}>
+            <Button
+              variant="secondary"
+              label={`After-photo${count('JOB_PHOTO_AFTER') ? ` (${count('JOB_PHOTO_AFTER')})` : ''}`}
+              disabled={busy}
+              onPress={() => void addSitePhoto('JOB_PHOTO_AFTER')}
+            />
+          </View>
+          {needsReceipt && (
+            <View style={{ flex: 1 }}>
+              <Button
+                variant="secondary"
+                label={count('MATERIALS_RECEIPT') ? 'Receipt ✓' : 'Receipt'}
+                disabled={busy}
+                onPress={() => void addSitePhoto('MATERIALS_RECEIPT')}
+              />
+            </View>
+          )}
+        </View>
+        <Button
+          label="Mark job done"
+          busy={busy}
+          disabled={!ready}
+          onPress={() => void act(`/v1/jobs/${job.id}/submit-work`)}
+        />
+      </>
+    );
+  } else if (offerOpen) {
     footer = declining ? null : (
       <>
         <Button
@@ -177,7 +304,11 @@ export default function JobScreen() {
                 {job.artisan.ratingCount > 0 ? `★ ${job.artisan.ratingAvg.toFixed(1)} · ` : ''}
                 {job.artisan.jobsCompleted} jobs on Jiko
               </Text>
-              <Text style={s.muted}>{job.artisan.phone}</Text>
+              <Text style={s.muted}>
+                {job.artisan.phone.includes('•')
+                  ? job.artisan.phone
+                  : formatPhone(job.artisan.phone)}
+              </Text>
             </View>
             {job.artisan.sealed && <Badge tone="success" label="Craft Seal" />}
           </Card>
@@ -219,7 +350,8 @@ export default function JobScreen() {
           )}
           {pro && (
             <Text style={s.muted}>
-              Client: {job.client.name ?? '—'} · {job.client.phone}
+              Client: {job.client.name ?? '—'} ·{' '}
+              {job.client.phone.includes('•') ? job.client.phone : formatPhone(job.client.phone)}
             </Text>
           )}
           {job.photos.length > 0 && (
@@ -276,13 +408,70 @@ export default function JobScreen() {
           </View>
         )}
 
+        {!pro && job.status === 'PAID' && (
+          <Banner
+            tone="success"
+            text="Paid — Jiko is holding your money until you confirm the job is done."
+          />
+        )}
+        {!pro && job.status === 'IN_PROGRESS' && (
+          <Banner
+            tone="info"
+            text="Your pro is on site. Materials are paid for; the rest stays held until you confirm."
+          />
+        )}
+        {!pro && job.status === 'WORK_SUBMITTED' && (
+          <Banner
+            tone="warning"
+            text={`Your pro marked the job done. Check the work, then confirm. Payment is released automatically ${until(job.autoReleaseAt)} if you don’t respond.`}
+          />
+        )}
+        {!pro && job.status === 'COMPLETED' && job.guaranteeExpiresAt && (
+          <Banner
+            tone="success"
+            text={`Completed. 7-day redo guarantee until ${until(job.guaranteeExpiresAt)}.`}
+          />
+        )}
+        {proAccepted && job.status === 'PAID' && (
+          <Banner
+            tone="info"
+            text={
+              q?.split && q.split.materialsAdvanceCents > 0
+                ? `Paid. When you start on site with a before-photo, ${formatCents(q.split.materialsAdvanceCents)} for materials is sent to you.`
+                : 'Paid. Take a before-photo on site to start the job.'
+            }
+          />
+        )}
+        {proAccepted && job.status === 'IN_PROGRESS' && (
+          <Banner
+            tone="info"
+            text={
+              needsReceipt
+                ? 'Add at least one after-photo and a photo of your materials receipt, then mark the job done.'
+                : 'Add at least one after-photo, then mark the job done.'
+            }
+          />
+        )}
+        {proAccepted && job.status === 'WORK_SUBMITTED' && (
+          <Banner
+            tone="info"
+            text={`Waiting for the client to confirm. Released automatically ${until(job.autoReleaseAt)}.`}
+          />
+        )}
+        {proAccepted && job.status === 'COMPLETED' && q?.split && (
+          <Banner
+            tone="success"
+            text={`Job complete — ${formatCents(q.split.artisanPayoutCents)} paid to you in total.`}
+          />
+        )}
+
         {chatOpen && <Chat jobId={job.id} />}
 
         {!pro && can('cancel') && (
           <Text
             style={[s.muted, { textDecorationLine: 'underline' }]}
             onPress={() =>
-              Alert.alert('Cancel this request?', 'The pro will be notified.', [
+              confirmDialog('Cancel this request?', 'The pro will be notified.', [
                 { text: 'Keep it', style: 'cancel' },
                 {
                   text: 'Cancel request',

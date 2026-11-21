@@ -79,6 +79,11 @@ export default function Home() {
                   : 'Your jobs'}
             </Text>
             <Text style={ui.muted}>{formatPhone(me.phone)}</Text>
+            {mode === 'artisan' && (
+              <Pressable onPress={() => router.push('/payouts')} style={{ paddingVertical: 6 }}>
+                <Text style={{ color: colors.info, fontWeight: '500' }}>Payouts and setup ›</Text>
+              </Pressable>
+            )}
             {error && <Text style={ui.error}>{error}</Text>}
           </View>
         }

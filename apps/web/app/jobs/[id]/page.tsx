@@ -12,10 +12,10 @@ export default async function JobPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ created?: string }>;
+  searchParams: Promise<{ created?: string; paid?: string }>;
 }) {
   const { id } = await params;
-  const { created } = await searchParams;
+  const { created, paid } = await searchParams;
   const me = await apiGet<MeResponse>('/v1/me');
   let job: JobView;
   try {
@@ -27,7 +27,7 @@ export default async function JobPage({
   return (
     <>
       <AppHeader isAdmin={me.roles.includes('ADMIN')} />
-      <JobDetail job={job} justCreated={created === '1'} />
+      <JobDetail job={job} justCreated={created === '1'} justPaid={paid === '1'} />
     </>
   );
 }

@@ -584,7 +584,7 @@ describe('Phase 3: payments, held funds, payouts, refunds, ledger', () => {
       ).toBe('INITIALIZED');
     });
 
-    it('dev checkout simulator only completes your own session', async () => {
+    it('dev checkout simulator works without a session (like Stripe’s page) and only with the fake provider', async () => {
       const ctx = await approvedJob(WATER_HEATER);
       const co = await h.http
         .post(`/v1/jobs/${ctx.jobId}/checkout`)
@@ -593,15 +593,26 @@ describe('Phase 3: payments, held funds, payouts, refunds, ledger', () => {
       const session = new URL(co.body.url as string).searchParams.get('session');
       await h.http
         .post('/v1/dev/payments/checkout/complete')
-        .set(bearer(ctx.art.accessToken))
-        .send({ sessionId: session })
+        .send({ sessionId: 'cs_test_fake_doesnotexist' })
         .expect(404);
       await h.http
         .post('/v1/dev/payments/checkout/complete')
-        .set(bearer(ctx.client.accessToken))
         .send({ sessionId: session })
         .expect(200);
       expect((await job(ctx.jobId, ctx.client.accessToken)).status).toBe('PAID');
+
+      const live = await createHarness({
+        PAYMENTS_PROVIDER: 'stripe',
+        STRIPE_SECRET_KEY: 'sk_test_not_used_offline',
+      });
+      try {
+        await live.http
+          .post('/v1/dev/payments/checkout/complete')
+          .send({ sessionId: session })
+          .expect(404);
+      } finally {
+        await live.close();
+      }
     });
   });
 

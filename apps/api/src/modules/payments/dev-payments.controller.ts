@@ -2,9 +2,8 @@ import { Body, Controller, HttpCode, HttpStatus, Inject, Post } from '@nestjs/co
 import { z } from 'zod';
 import { ENV } from '../../config/config.module';
 import type { Env } from '../../config/env';
-import { Authenticated, CurrentUser } from '../../common/decorators/access.decorators';
+import { Public } from '../../common/decorators/access.decorators';
 import { AppException } from '../../common/http/app-exception';
-import type { AuthUser } from '../../common/http/request-context';
 import { ZodPipe } from '../../common/pipes/zod.pipe';
 import { PrismaService } from '../../prisma/prisma.service';
 import { WebhooksService } from './webhooks.service';
@@ -14,10 +13,11 @@ const Enable = z.object({ accountId: z.string().startsWith('acct_fake_') });
 
 /**
  * Development stand-ins for Stripe's hosted pages, active only with PAYMENTS_PROVIDER=fake outside
- * production. They emit the same signed webhook events Stripe would, through the real handler.
+ * production. Like Stripe's pages they need no Jiko login: the unguessable session/account id is
+ * the credential. They emit the same signed webhook events Stripe would, through the real handler.
  */
 @Controller('dev/payments')
-@Authenticated()
+@Public()
 export class DevPaymentsController {
   constructor(
     private readonly webhooks: WebhooksService,
@@ -42,16 +42,12 @@ export class DevPaymentsController {
 
   @Post('checkout/complete')
   @HttpCode(200)
-  async completeCheckout(
-    @CurrentUser() user: AuthUser,
-    @Body(new ZodPipe(Complete)) body: z.output<typeof Complete>,
-  ) {
+  async completeCheckout(@Body(new ZodPipe(Complete)) body: z.output<typeof Complete>) {
     this.guard();
     const payment = await this.prisma.payment.findUnique({
       where: { checkoutSessionId: body.sessionId },
     });
-    if (!payment || payment.clientId !== user.id)
-      throw new AppException(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Checkout not found');
+    if (!payment) throw new AppException(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Checkout not found');
     await this.emit('checkout.session.completed', {
       id: body.sessionId,
       object: 'checkout.session',
@@ -65,14 +61,12 @@ export class DevPaymentsController {
 
   @Post('payouts/enable')
   @HttpCode(200)
-  async enablePayouts(
-    @CurrentUser() user: AuthUser,
-    @Body(new ZodPipe(Enable)) body: z.output<typeof Enable>,
-  ) {
+  async enablePayouts(@Body(new ZodPipe(Enable)) body: z.output<typeof Enable>) {
     this.guard();
-    const profile = await this.prisma.artisanProfile.findUnique({ where: { userId: user.id } });
-    if (!profile || profile.stripeAccountId !== body.accountId)
-      throw new AppException(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Account not found');
+    const profile = await this.prisma.artisanProfile.findUnique({
+      where: { stripeAccountId: body.accountId },
+    });
+    if (!profile) throw new AppException(HttpStatus.NOT_FOUND, 'NOT_FOUND', 'Account not found');
     await this.emit('account.updated', {
       id: body.accountId,
       object: 'account',

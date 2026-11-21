@@ -143,7 +143,7 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
           <>
             <h1 className="text-2xl font-semibold">What do you need help with?</h1>
             <p className="text-sm text-muted">
-              Every artisan on Jiko has passed our 6-step Craft Seal check.
+              Every pro on Jiko is licensed, insured and has passed our 6-step Craft Seal check.
             </p>
             <div className="space-y-3" role="radiogroup">
               {trades.map((t) => (
@@ -293,8 +293,8 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
               </div>
             </div>
             <p className="text-xs text-muted">
-              Your full address and access notes are shared with the artisan only after they accept
-              the job.
+              Your full address and access notes are shared with the pro only after they accept the
+              job.
             </p>
           </>
         )}
@@ -321,10 +321,10 @@ export function BookingWizard({ trades, areas }: { trades: Option[]; areas: Opti
             <h2 className="font-semibold">What happens next</h2>
             <ol className="space-y-3 text-sm">
               {[
-                'Jiko assigns a Craft Seal artisan near you',
+                'Jiko assigns a Craft Seal pro near you',
                 'They visit or inspect, then send an itemized quote',
                 'You approve and pay — Jiko holds the money',
-                'The artisan is paid only when you confirm the job is done',
+                'The pro is paid only when you confirm the job is done',
               ].map((s, i) => (
                 <li key={s} className="flex gap-3">
                   <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-semibold">

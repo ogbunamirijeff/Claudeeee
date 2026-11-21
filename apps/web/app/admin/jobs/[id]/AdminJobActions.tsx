@@ -92,7 +92,9 @@ export function AdminJobActions(props: {
         </section>
       )}
 
-      {(props.actions.includes('withdrawAssignment') || props.actions.includes('cancel')) && (
+      {(props.actions.includes('withdrawAssignment') ||
+        props.actions.includes('cancel') ||
+        props.actions.includes('refundBeforeStart')) && (
         <section className="space-y-2 rounded-xl border border-line bg-surface p-4">
           <h2 className="text-sm font-semibold">Ops actions</h2>
           <input
@@ -119,6 +121,18 @@ export function AdminJobActions(props: {
                 onClick={() => void run(`/jobs/${props.jobId}/cancel`, { reason })}
               >
                 Cancel job
+              </button>
+            )}
+            {props.actions.includes('refundBeforeStart') && (
+              <button
+                className={btn.smallSecondary}
+                disabled={busy || reason.trim().length < 3}
+                onClick={() => {
+                  if (window.confirm('Refund everything held for this job to the client?'))
+                    void run(`/admin/jobs/${props.jobId}/refund`, { reason });
+                }}
+              >
+                Refund client in full
               </button>
             )}
           </div>

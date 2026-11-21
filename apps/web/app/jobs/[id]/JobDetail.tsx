@@ -2,15 +2,25 @@
 
 import type { JobView } from '@jiko/shared';
 import { formatCents } from '@jiko/shared/money';
+import { formatPhone } from '@jiko/shared/phone';
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { Chat } from '@/components/Chat';
+import { JobProgress } from './JobProgress';
 import { QuoteCard } from '@/components/QuoteCard';
 import { Badge, Banner, btn, Card, input } from '@/components/ui';
 import { api, errorMessage } from '@/lib/client-api';
 import { formatDay, JOB_STATUS_LABEL, JOB_STATUS_TONE, TIME_WINDOW } from '@/lib/labels';
 
-export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boolean }) {
+export function JobDetail({
+  job,
+  justCreated,
+  justPaid = false,
+}: {
+  job: JobView;
+  justCreated: boolean;
+  justPaid?: boolean;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +51,7 @@ export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boo
     <main className="mx-auto max-w-2xl space-y-5 px-4 py-6">
       {justCreated && (
         <Banner tone="success">
-          Request received. We&apos;ll match you with a Craft Seal artisan and let you know.
+          Request received. We&apos;ll match you with a Craft Seal pro and let you know.
         </Banner>
       )}
       <div className="flex flex-wrap items-center gap-2">
@@ -67,7 +77,9 @@ export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boo
               {job.artisan.ratingCount > 0 ? `★ ${job.artisan.ratingAvg.toFixed(1)} · ` : ''}
               {job.artisan.jobsCompleted} jobs on Jiko
             </p>
-            <p className="text-sm tabular-nums text-muted">{job.artisan.phone}</p>
+            <p className="text-sm tabular-nums text-muted">
+              {job.artisan.phone.includes('•') ? job.artisan.phone : formatPhone(job.artisan.phone)}
+            </p>
           </div>
           {job.artisan.sealed && <Badge tone="success">Craft Seal</Badge>}
         </Card>
@@ -75,8 +87,7 @@ export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boo
 
       {job.status === 'PENDING_ASSIGNMENT' || job.status === 'ASSIGNED' ? (
         <Banner tone="info">
-          We&apos;re finding a Craft Seal artisan near you. This usually takes under 2 working
-          hours.
+          We&apos;re finding a Craft Seal pro near you. This usually takes under 2 working hours.
         </Banner>
       ) : null}
 
@@ -95,8 +106,8 @@ export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boo
           {can('approveQuote') && q.status === 'SUBMITTED' && (
             <div className="space-y-2">
               <Banner tone="success">
-                Your money is held by Jiko. The artisan is paid only when you confirm the job is
-                done. 7-day redo guarantee.
+                Your money is held by Jiko. The pro is paid only when you confirm the job is done.
+                7-day redo guarantee.
               </Banner>
               <button
                 className={btn.primary}
@@ -129,17 +140,16 @@ export function JobDetail({ job, justCreated }: { job: JobView; justCreated: boo
                     aria-label="What should change?"
                   />
                   <button className={btn.secondary} disabled={busy || reason.trim().length < 3}>
-                    Send to artisan
+                    Send to pro
                   </button>
                 </form>
               )}
             </div>
           )}
-          {job.status === 'AWAITING_PAYMENT' && !waitingReview && (
-            <Banner tone="info">Quote approved. Secure payment opens in the next release.</Banner>
-          )}
         </section>
       )}
+
+      <JobProgress job={job} justPaid={justPaid} />
 
       <Card className="space-y-2 text-sm">
         <p>{job.description}</p>

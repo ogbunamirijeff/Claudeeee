@@ -1,3 +1,4 @@
+import { formatCents } from '@jiko/shared/money';
 import { formatPhone } from '@jiko/shared/phone';
 import type { CandidateView, JobView } from '@jiko/shared';
 import type { Metadata } from 'next';
@@ -21,6 +22,9 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
   }
+  const ledger = await apiGet<
+    { id: string; from: string; to: string; amountCents: number; memo: string; createdAt: string }[]
+  >(`/v1/admin/jobs/${job.id}/ledger`);
   const candidates =
     job.status === 'PENDING_ASSIGNMENT'
       ? await apiGet<CandidateView[]>(`/v1/admin/jobs/${job.id}/candidates`)
@@ -88,6 +92,48 @@ export default async function AdminJobPage({ params }: { params: Promise<{ id: s
         )}
         {job.quote && <QuoteCard quote={job.quote} showSplit />}
         {job.artisan && job.offer?.status === 'ACCEPTED' && <Chat jobId={job.id} admin />}
+        {ledger.length > 0 && (
+          <section className="space-y-2" aria-label="Ledger">
+            <h2 className="font-semibold">
+              Ledger{' '}
+              {job.payment && (
+                <span className="font-normal text-muted">
+                  · payment {job.payment.status.toLowerCase().replace('_', ' ')}
+                </span>
+              )}
+            </h2>
+            <div className="overflow-x-auto rounded-xl border border-line bg-surface">
+              <table className="w-full whitespace-nowrap text-left text-sm">
+                <thead className="border-b border-line text-muted">
+                  <tr>
+                    {['When', 'From', 'To', 'Amount', 'Memo'].map((h) => (
+                      <th key={h} className="px-3 py-2 font-medium">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-line">
+                  {ledger.map((l) => (
+                    <tr key={l.id}>
+                      <td className="px-3 py-2 text-muted">
+                        {new Date(l.createdAt).toLocaleString('en-US', {
+                          timeZone: 'America/Chicago',
+                          dateStyle: 'short',
+                          timeStyle: 'short',
+                        })}
+                      </td>
+                      <td className="px-3 py-2 font-mono text-xs">{l.from}</td>
+                      <td className="px-3 py-2 font-mono text-xs">{l.to}</td>
+                      <td className="px-3 py-2 tabular-nums">{formatCents(l.amountCents)}</td>
+                      <td className="px-3 py-2 text-muted">{l.memo}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
         <details className="text-sm" open>
           <summary className="cursor-pointer font-semibold">History</summary>
           <ol className="mt-2 space-y-1">

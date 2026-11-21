@@ -9,6 +9,7 @@ export function AdminNav({ counts }: { counts: { queue: number; reviews: number 
     { href: '/admin', label: 'Request queue', count: counts.queue },
     { href: '/admin/pipeline', label: 'Job pipeline' },
     { href: '/admin/reviews', label: 'Quotes to review', count: counts.reviews },
+    { href: '/admin/payments', label: 'Payments' },
     { href: '/admin/users', label: 'Users' },
   ];
   return (

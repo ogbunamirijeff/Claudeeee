@@ -2,6 +2,8 @@ import { router } from 'expo-router';
 import type { ReactNode } from 'react';
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -213,3 +215,21 @@ export const s = StyleSheet.create({
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   error: { color: colors.danger, fontSize: 14 },
 });
+
+type DialogButton = {
+  text: string;
+  style?: 'cancel' | 'default' | 'destructive';
+  onPress?: () => void;
+};
+
+/**
+ * Alert.alert on devices. React Native's Alert does nothing in the web build, so there we use
+ * window.confirm and run the last (confirming) button.
+ */
+export function confirmDialog(title: string, message: string, buttons: DialogButton[]) {
+  if (Platform.OS === 'web') {
+    if (globalThis.confirm?.(`${title}\n\n${message}`)) buttons.at(-1)?.onPress?.();
+    return;
+  }
+  Alert.alert(title, message, buttons);
+}
